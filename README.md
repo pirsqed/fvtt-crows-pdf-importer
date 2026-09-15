@@ -1,95 +1,74 @@
 # Crows PDF Importer
 
-An unofficial Foundry VTT module for extracting content from a user's own Crows
-playtest packet. Independent of the Crows system repository. No game PDFs,
-extracted game content, or third-party PDF engines are included.
+Import your own Crows playtest PDFs into Foundry VTT: equipment, dungeon loot, traits, creatures, backgrounds and NPC connections. Choose a packet folder, select the entries you want and review changes before saving.
 
-## Current status
+Requires **Foundry 14**, **Crows (Unofficial) v0.2.1** and a compatible importer module. The current adapter supports Foundry's bundled PDF.js **4.0.379**. Extraction runs in the browser.
 
-**Development scaffold with a working extraction preview.** The module can
-preview card segmentation and trait records/connections. It does not yet create
-Foundry documents or import a complete packet.
+## Using the importer
 
-Targets Foundry 14 and the `fvtt-crows-system` game system. Extraction uses the
-host's bundled PDF.js 4.0.379. The adapter currently checks that exact PDF.js
-version because font metadata and drawing-operator access are version-sensitive.
-No Python or npm installation is needed by the GM.
+The Ref imports the packet once for the world. Players then use the compendiums and **Create a Crow**. For hosted games, select the PDFs on the computer running the Ref's browser; reviewed content is saved in the Foundry world.
 
-## Local Foundry setup
+### 1. Install and enable
 
-1. Place this repository at `<Foundry User Data>/Data/modules/fvtt-crows-pdf-importer`.
-2. Restart Foundry if needed, open a Crows world, and enable **Crows PDF Importer
-   (Unofficial)** under Manage Modules.
-3. As GM, create and run a Script macro:
+Install **Crows PDF Importer (Unofficial)** alongside the system and enable it under **Settings → Manage Modules**. Reload the world. Open **Settings → Configure Settings → Crows (Unofficial) → Import Playtest Content**, or use **Open PDF Importer** in **Start Here**. No macro is needed.
 
-```javascript
-game.modules.get("fvtt-crows-pdf-importer").api.open();
-```
+Install the module release ZIP with `module.json` at the root of `Data/modules/fvtt-crows-pdf-importer` on the Foundry host, then restart Foundry. Until a public release is available, a development checkout can be installed at the same path. Pair it with Crows system v0.2.1. The system provides guidance if the module is missing, disabled or unavailable.
 
-Choose the core inventory-card PDF and page 1, or the Characters book with the
-Trait tree layout and page 8. Page numbers refer to physical PDF pages.
-All extraction happens locally in browser workers. The preview writes no world
-documents, compendiums, settings or uploaded artwork. Cancel or close to stop it.
+### 2. Choose and extract the PDFs
 
-This repository is local-only at creation: no GitHub remote, published manifest,
-release ZIP, or automated installation into Foundry has been configured.
+Extract your playtest ZIP on the computer running your browser. Keep the original filenames and subfolders. For a complete library, include the **Characters book**, **Ref book**, **core Inventory Cards**, **Profession cards**, and **POI/Dungeon cards**.
 
-## Development
+Choose **Packet folder** to include subfolders, or **Individual PDFs** to choose the books directly. Check each file's assigned content type; renamed files can be assigned manually. Skip duplicate copies and unrelated books. Click **Extract selected PDFs** and wait for the results, then **Choose entries & review →**.
 
-Node is used only for development checks. `npm test` runs the module lifecycle
-and permission checks without external dependencies. The PDF comparison and
-browser tests require a locally installed Foundry copy and user-owned fixtures.
+Extraction saves nothing to your world. **Extraction results** contains the per-book details; **Developer tools & extraction data** is available when troubleshooting.
 
-The existing system's Python baseline generator can supply the comparison data:
+### 3. Select what to import
 
-```powershell
-../fvtt-crows-system/tools/.venv/Scripts/python.exe ../fvtt-crows-system/tools/mupdf-prototype/baseline.py --packet ../playtest2_pdfs
-$env:CROWS_BASELINE = (Resolve-Path ../fvtt-crows-system/tools/out/mupdf-prototype/baseline.json).Path
-$env:FOUNDRY_PDFJS = "C:/Program Files/Foundry Virtual Tabletop/resources/app/node_modules/@foundryvtt/pdfjs/"
-npm run test:extraction
-```
+All extracted entries start selected. Use the checkboxes to choose individual entries, or narrow the list with search and the category filter. **Select visible** and **Deselect visible** affect only the entries currently shown; hidden selections stay selected. The selection count shows the total that will be reviewed.
 
-Alternatively put the generated baseline in ignored `out/baseline.json`.
-A local copy is present in the initial working directory, but is not committed.
-The baseline refers to the PDFs by local path. It is developer data, not a runtime
-dependency. Python is only used to compare against the old parser.
+For example, to import only Nature Lore Books: clear the search, choose **All categories**, click **Deselect visible**, search for `Lore Book (Nature)`, and select the entries you want.
 
-For browser checks, supply an existing Playwright installation and Chrome:
+Repeated copies are combined, and core inventory takes precedence over matching profession cards. Lore Books are named for their printed expertise—Nature, Monster, Historical or Magic—with plain **Lore Book** for an unspecified expertise. If other entries have conflicting definitions, choose a definition or skip the entry.
 
-```powershell
-$env:PLAYWRIGHT_MODULE = "C:/path/to/playwright/index.mjs"
-npm run test:browser
-```
+### 4. Choose import options
 
-The browser harness serves the installed PDF.js directly under Foundry-style
-routes, including a reverse-proxy prefix. It does not redistribute that library.
-Generated comparisons and browser reports go to ignored `out/`.
+- **Update character-creation content:** publishes backgrounds, NPC connections and starting-kit content for **Create a Crow** after a successful import. It is available when the complete background/connection data was extracted. Required equipment, traits and pets must be selected or already present in the world compendiums. Leave this on for initial setup; turn it off for a standalone item or creature import. Turning it off keeps previously published creator content.
+- **Force overwrite existing entries:** off by default. Enable it to replace imported fields on edited or untracked matches and to replace an imported creature's embedded Items, including attacks and traits. Parent document IDs, custom artwork, folders and ownership remain. Embedded Item IDs change. Ambiguous duplicate matches are still preserved.
 
-## Layout
+### 5. Review and save
 
-- `scripts/main.mjs`: module initialization and GM-only public API.
-- `scripts/preview.mjs`: local PDF picker and preview UI.
-- `scripts/worker.mjs`: extraction worker and PDF.js worker lifecycle.
-- `scripts/extract.mjs`: PDF.js text, font and drawing adapter.
-- `scripts/layout-parser.mjs`: Crows card and trait layout heuristics.
-- `tests/`: module checks and real-PDF comparison/browser harnesses.
-- [Implementation plan](docs/implementation-plan.md).
+As the active GM, click **Check world and review changes**. Unlock any locked target compendiums first. Read the result for each selected entry:
 
-## Validation so far
+| Result | Meaning |
+| --- | --- |
+| **create** | Add a new entry to the compendium. |
+| **update** | Update an existing entry, retaining its parent ID. In force mode, this can replace local edits and creature inventories. |
+| **unchanged** | The imported content is already current. |
+| **preserve** | Keep the existing entry; the Details column explains why. |
 
-The prior prototype compared 72 pages: 734 card segments and 276 traits.
-71 pages match strictly; all 72 match after normalizing three invisible
-separators in a profession card. Trait geometry, connections, names, costs and
-descriptions match. Browser tests cover representative card and trait pages,
-invalid inputs, cancellation/retry and resource paths.
+Click **Import selected entries** to save. Changing selections or import options requires a new review. A world change detected after review also requires another check.
 
-Full card fields, including word-level tier-cell assignment, are not yet ported.
-The runtime has been exercised in a Chrome route harness, not a live Foundry world.
+The complete current packet produces **134 equipment entries, 40 dungeon-loot entries, 276 traits and 71 creatures** across four world compendiums—521 entries total. Character-creation publishing adds **36 backgrounds and 10 NPC connection choices** to the creator; they are not separate compendiums.
 
-## License and content
+### Re-importing and troubleshooting
 
-Module code is MIT licensed. PDF.js is supplied by Foundry and uses Apache-2.0.
-The runtime has no MuPDF or PyMuPDF dependency. PDFs, game text, artwork and other
-third-party content retain their respective rights. This project does not include
-them or grant permission to redistribute them. No affiliation with MCDM or Foundry
-Gaming is implied.
+By default, re-importing updates unedited tracked Items, preserves local edits and older untracked entries, and preserves changed creature inventories. Custom artwork is retained; the generic bag icon on a Lore Book is corrected to a book icon. Imports affect the world compendiums, not copies already placed on character sheets or scenes.
+
+**Stop after current entry** keeps completed changes. A failed import can also leave partial changes, especially during forced creature-inventory replacement. Read the result, correct the problem and review again before retrying. Creator content is published only after the import succeeds. After editing compendiums, repeat the review/import with **Update character-creation content** enabled to refresh what the creator uses.
+
+- **Missing starting spellbooks:** extract the core inventory PDF together with the Characters book.
+- **Missing creator reference:** include the named equipment, trait or pet, or turn off creator publishing for a standalone import.
+- **Preserved duplicate match:** resolve the duplicate compendium entries manually; force overwrite does not choose between them.
+- **Extraction failed:** check the book assignment and packet version. Include the error and PDF/page details when reporting an issue.
+
+Some fresh-import icons remain generic; importing the packet's separate creature artwork is still pending. Future packet layouts may need an importer update.
+
+## Development and limits
+
+The user has confirmed extraction, imports and the updated UI in live Foundry. Automated checks cover parser comparisons, selective review, preservation/overwrite behavior, cancellation and repeat imports. These checks use local user-owned PDFs and an isolated Foundry test harness.
+
+See [development and validation](docs/development.md) for commands, API details, field mappings and remaining work. [The implementation plan](docs/implementation-plan.md) tracks integration and release tasks. Version 0.1.0 packaging and a draft-release workflow are prepared. See [release instructions](docs/releasing.md) for build commands, installation assets and the paired-system requirement. Public distribution is not yet live.
+
+## License
+
+Module code is MIT licensed. PDF.js is provided by Foundry and uses Apache-2.0; no PDF engine is bundled. PDFs, extracted game content and artwork are not included and retain their respective rights. This module is unofficial and is not affiliated with MCDM or Foundry Gaming.

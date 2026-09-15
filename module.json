@@ -1,14 +1,29 @@
 {
   "id": "fvtt-crows-pdf-importer",
   "title": "Crows PDF Importer (Unofficial)",
-  "description": "Import tools for your own Crows playtest PDFs. Development version: card and trait extraction preview only; does not yet import documents.",
-  "version": "0.1.0-dev.1",
-  "compatibility": { "minimum": "14", "verified": "14.367" },
-  "authors": [{ "name": "Jeff Corder (pirsqed)", "url": "https://github.com/pirsqed" }],
-  "relationships": {
-    "systems": [{ "id": "fvtt-crows-system", "type": "system" }]
+  "description": "Import your own Crows playtest PDFs: inventory, creatures, trait trees, backgrounds and NPC connections, with reviewed world-compendium imports and character-creation integration.",
+  "version": "0.1.0",
+  "compatibility": {
+    "minimum": "14",
+    "verified": "14.367"
   },
-  "esmodules": ["scripts/main.mjs"],
+  "authors": [
+    {
+      "name": "Jeff Corder (pirsqed)",
+      "url": "https://github.com/pirsqed"
+    }
+  ],
+  "relationships": {
+    "systems": [
+      {
+        "id": "fvtt-crows-system",
+        "type": "system"
+      }
+    ]
+  },
+  "esmodules": [
+    "scripts/main.mjs"
+  ],
   "packs": [],
   "readme": "README.md",
   "license": "LICENSE"

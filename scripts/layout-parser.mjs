@@ -1,3 +1,4 @@
+import {parseCard} from './card-parser.mjs';
 const norm = s => s.replace(/[’‘]/g, "'").replace(/–/g, "-").replace(/\s+/g, " ").trim();
 const bounds = points => [Math.min(...points.map(p => p[0])), Math.min(...points.map(p => p[1])), Math.max(...points.map(p => p[0])), Math.max(...points.map(p => p[1]))];
 const center = r => [(r[0] + r[2]) / 2, (r[1] + r[3]) / 2];
@@ -34,7 +35,7 @@ function traits({lines,paths}) {
   return {boxes,segments,groups:connections(segments,boxes),records};
 }
 
-function cards({lines,paths}) {
+function cards({lines,paths},context={}) {
   const verticals=[];
   for(const path of paths) {
     // PyMuPDF represents thin filled rectangles as one rectangle, not four lines.
@@ -54,7 +55,7 @@ function cards({lines,paths}) {
     for(let i=1;i<xs.length;i++)if(xs[i]-xs[i-1]>=60)columns.push([xs[i-1],b.y0,xs[i],b.y1]);
   }
   columns.sort(order(50));
-  const records=[];
+  const records=[],parsedCards=[];
   const excluded=new Set(['Maneuver:','Maneuver','Action:','Action','Reaction:','Reaction','Duration:','Dur.','Target','UD','UD:','Slot','Slot:','Fine','Masterwork','Attack','Stack','Armor','12-16','17+','≤','≤11','<=11','Book']);
   for(const column of columns){
     const spans=lines.flatMap(l=>l.spans).filter(s=>s.text.trim() && inside(center(s.bbox),column)).sort((a,b)=>a.bbox[1]-b.bbox[1] || a.bbox[0]-b.bbox[0]);
@@ -64,9 +65,19 @@ function cards({lines,paths}) {
     const starts=[];
     grouped.forEach((l,i)=>{const s=l.spans[0],size=Math.round(s.size*10)/10;if(!(s.bold || s.italic && size>=9) || size<=7.6 || excluded.has(s.text.trim().split(' ')[0]) || excluded.has(s.text.trim()) || /12-16|17\+|≤/.test(l.text))return;
       if(/Stack\s*\d/.test(l.text) || grouped.slice(i+1,i+3).some(n=>/^\s*Stack\s*\d/.test(n.text) && n.spans.some(s=>s.bold)))starts.push(i);});
-    starts.forEach((start,i)=>records.push({column:columns.indexOf(column),raw_lines:grouped.slice(start,starts[i+1]??grouped.length).map(l=>norm(l.text))}));
+    starts.forEach((start,i)=>{
+      const cardLines=grouped.slice(start,starts[i+1]??grouped.length).map(line=>({...line,
+        size:Math.max(...line.spans.map(s=>Math.round(s.size*10)/10)),
+        x0:Math.min(...line.spans.map(s=>s.bbox[0])),x1:Math.max(...line.spans.map(s=>s.bbox[2])),
+        spans:line.spans.map(s=>({...s,size:Math.round(s.size*10)/10,x:s.bbox[0],x1:s.bbox[2]}))}));
+      records.push({column:columns.indexOf(column),raw_lines:cardLines.map(l=>norm(l.text))});
+      const shorts=verticals.filter(v=>v[2]-v[1]>=4 && v[2]-v[1]<100 && v[0]>=column[0]-2 && v[0]<=column[2]+2);
+      const card=parseCard(cardLines,{...context,index:parsedCards.length,verticals:shorts});
+      card.page_title=norm(lines.flatMap(l=>l.spans).find(s=>s.size>=13 && s.text.trim())?.text??'')||null;
+      card.column=column.map(v=>Math.round(v*10)/10);parsedCards.push(card);
+    });
   }
-  return {columns,records};
+  return {columns,records,parsedCards};
 }
 
 export {cards,traits};

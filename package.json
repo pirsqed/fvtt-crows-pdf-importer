@@ -1,13 +1,20 @@
 {
   "name": "fvtt-crows-pdf-importer",
-  "version": "0.1.0-dev.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "license": "MIT",
-  "description": "Development repository for the Crows Foundry VTT PDF importer",
+  "description": "the Crows Foundry VTT PDF importer",
   "scripts": {
-    "test": "node --test tests/module.test.mjs",
+    "test": "node --test tests/module.test.mjs tests/card-parser.test.mjs tests/item-mapper.test.mjs tests/packet.test.mjs tests/npc-parser.test.mjs tests/characters-parser.test.mjs tests/import-content.test.mjs",
+    "test:import": "node tests/import-fixtures.mjs",
+    "test:characters": "node tests/characters-compare.mjs",
+    "test:npcs": "node tests/npcs-compare.mjs",
+    "test:items": "node tests/items-compare.mjs",
+    "test:cards": "node tests/cards-compare.mjs",
     "test:extraction": "node tests/compare.mjs",
-    "test:browser": "node tests/browser-smoke.mjs"
+    "test:browser": "node tests/browser-smoke.mjs",
+    "test:release": "python -m unittest discover -s tests -p test_release.py",
+    "build:release": "python tools/build_release.py"
   }
 }

@@ -9,7 +9,7 @@ test('module initializes its guarded preview API without opening a dialog',async
   for(const script of manifest.esmodules)await readFile(new URL('../'+script,import.meta.url));
   const module={},warnings=[];let initialize;
   globalThis.Hooks={once(event,callback){assert.equal(event,'init');initialize=callback;}};
-  globalThis.game={modules:new Map([[manifest.id,module]]),system:{id:'fvtt-crows-system'},user:{isGM:false}};
+  globalThis.game={modules:new Map([[manifest.id,module]]),system:{id:'fvtt-crows-system'},user:{isGM:false},settings:{register(scope,key,options){assert.equal(scope,manifest.id);assert.equal(key,'characterContent');assert.equal(options.scope,'world');assert.equal(options.config,false);}}};
   globalThis.ui={notifications:{warn(message){warnings.push(message);}}};
   try{
     await import('../scripts/main.mjs');assert.equal(module.api,undefined);
