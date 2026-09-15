@@ -1,0 +1,13 @@
+# User-owned PDFs, generated content and local test reports never ship.
+out/
+pdfs/
+*.pdf
+*.zip
+node_modules/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db

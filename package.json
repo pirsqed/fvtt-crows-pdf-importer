@@ -1,0 +1,13 @@
+{
+  "name": "fvtt-crows-pdf-importer",
+  "version": "0.1.0-dev.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Development repository for the Crows Foundry VTT PDF importer",
+  "scripts": {
+    "test": "node --test tests/module.test.mjs",
+    "test:extraction": "node tests/compare.mjs",
+    "test:browser": "node tests/browser-smoke.mjs"
+  }
+}
