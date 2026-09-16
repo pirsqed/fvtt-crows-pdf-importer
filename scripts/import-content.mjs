@@ -63,9 +63,11 @@ export async function prepareImport(bundle,{adapter,forceOverwrite=false}={}){
     for(const raw of prepared){
       const k=adapter.sourceKey(raw),matches=existing.filter(doc=>doc.getFlag(SYSTEM,'importSource')?.key===k||adapter.sourceKey(doc)===k);
       const old=matches.length===1?matches[0]:null,meta=old?.getFlag(SYSTEM,'importSource');
-      // Keep existing curated/user artwork when migrating from the old builder.
-      const repairLoreIcon=raw.type==='equipment'&&/^Lore Book(?: \(.*\))?$/.test(raw.name)&&old?.img==='icons/svg/item-bag.svg';
-      if(old?.img&&!repairLoreIcon)raw.img=old.img;
+      // Keep existing curated/user artwork; upgrade only category placeholders.
+      const placeholders=new Set(['icons/svg/item-bag.svg','icons/svg/sword.svg','icons/svg/shield.svg',
+        'icons/sundries/books/book-worn-brown.webp']);
+      const upgradePlaceholder=old?.img!==raw.img&&placeholders.has(old?.img)&&!placeholders.has(raw.img);
+      if(old?.img&&!upgradePlaceholder)raw.img=old.img;
       if(old&&config.type==='Actor'){
         const oldTexture=old.toObject().prototypeToken?.texture?.src;
         if(oldTexture&&raw.prototypeToken?.texture)raw.prototypeToken.texture.src=oldTexture;

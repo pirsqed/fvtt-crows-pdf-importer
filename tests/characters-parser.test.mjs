@@ -24,12 +24,13 @@ test('background mapping combines common kits and preserves expertise uses and c
 });
 
 test('trait mapping distinguishes connected traits from cheaper prerequisites and escapes descriptions',()=>{
-  const records=Array.from({length:12},(_,i)=>({name:i===0?'Sieze the Advantage':`Trait ${i}`,cost:10*(Math.floor(i/3)+1),starting:i<3,desc:'Safe <img> text'}));
+  const records=Array.from({length:12},(_,i)=>({name:i===0?'Sieze the Advantage':i===11?'Weapon Expert':`Trait ${i}`,cost:10*(Math.floor(i/3)+1),starting:i<3,desc:'Safe <img> text'}));
   const items=traitItems({lines:[{spans:[{size:14,text:'Blackmsithing'}]}]},{records,groups:[[0,3,6]]},8);
   assert.equal(items[3].system.tree,'Blacksmithing');assert.equal(items[3].system.prerequisites,'Seize the Advantage');
   assert.deepEqual(items[3].flags['fvtt-crows-pdf-importer'].connected,['Seize the Advantage','Trait 6']);
   assert.equal(items[0].system.prerequisites,'Starting Trait');assert.equal(items[3].system.tier,'Tier 2');
   assert.equal(items[3].system.description,'<p>Safe &lt;img&gt; text</p>');
+  assert.equal(items[11].img,'icons/tools/smithing/anvil.webp');
   assert.throws(()=>traitItems({lines:[]},{records:[],groups:[]},8),/12 traits/);
 });
 

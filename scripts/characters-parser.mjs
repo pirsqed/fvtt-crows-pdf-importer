@@ -1,4 +1,5 @@
 import {escapeHTML,norm} from './card-parser.mjs';
+import {iconForTrait} from './item-icons.mjs';
 
 const itemAliases={'extra knife':'Knife','knife':'Knife','gluepot':'Glue Pot','glue pot':'Glue Pot','quill and ink pot':'Quill & Inkpot','quill and inkpot':'Quill & Inkpot','quiver of arrows':'Quiver of Arrows','case of bolts':'Case of Crossbow Bolts',"alchemist's tools":"Alchemist's Tools","blacksmith's tools":"Blacksmith's Tools","cook's utensils":"Cook's Utensils","merchant's scales":"Merchant's Scales",'11-foot pole':'11-Foot Pole','lore book':'Lore Book','musical instrument':'Musical Instrument'};
 const petAliases={'riding horse':'Horse, Riding','draft horse':'Horse, Draft','war horse':'Horse, War'};
@@ -22,7 +23,7 @@ export function traitItems(layout,result,page){
     if(!r.name||!Number.isInteger(r.cost)||r.cost<0)throw new Error(`Page ${page}: incomplete trait ${index+1}.`);
     const links=[...new Set(result.groups.filter(group=>group.includes(index)).flat())].filter(i=>i!==index).sort((a,b)=>a-b);
     const prerequisites=r.starting?'Starting Trait':links.filter(i=>records[i].cost<=r.cost).map(i=>records[i].name).join(' | ');
-    return {name:r.name,type:'trait',img:'icons/sundries/books/book-worn-brown.webp',system:{tree,tier:['Starting','Tier 2','Tier 3','Tier 4'][Math.floor(index/3)],cost:r.cost,prerequisites,description:`<p>${escapeHTML(r.desc)}</p>`},
+    return {name:r.name,type:'trait',img:iconForTrait(r.name,'icons/sundries/books/book-worn-brown.webp'),system:{tree,tier:['Starting','Tier 2','Tier 3','Tier 4'][Math.floor(index/3)],cost:r.cost,prerequisites,description:`<p>${escapeHTML(r.desc)}</p>`},
       flags:{'fvtt-crows-pdf-importer':{schemaVersion:1,source:{set:'characters',page,box:index},connected:links.map(i=>records[i].name)}}};
   });
 }

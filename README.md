@@ -61,7 +61,7 @@ By default, re-importing updates unedited tracked Items, preserves local edits a
 - **Preserved duplicate match:** resolve the duplicate compendium entries manually; force overwrite does not choose between them.
 - **Extraction failed:** check the book assignment and packet version. Include the error and PDF/page details when reporting an issue.
 
-Some fresh-import icons remain generic; importing the packet's separate creature artwork is still pending. Future packet layouts may need an importer update.
+Named equipment, loot and traits use curated Foundry core icons. Items without a curated match use a category icon. Importing the packet's separate creature artwork is still pending. Future packet layouts may need an importer update.
 
 ## Development and limits
 

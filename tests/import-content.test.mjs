@@ -130,7 +130,7 @@ test('failed forced Actor replacement reports partial progress and can be retrie
 test('Lore Book re-import repairs the generic bag while retaining custom artwork',async()=>{
   const env=setupImport(),old=item('Lore Book (Nature)');
   await execute(await prepare(resolveImport(report([old]))));
-  const incoming={...old,img:'icons/sundries/books/book-worn-brown.webp'};
+  const incoming={...old,img:'icons/sundries/books/book-embossed-bound-brown.webp'};
   const bundle=resolveImport(report([incoming]));
   const review=await prepare(bundle);assert.equal(review.counts.update,1);await execute(review);
   const doc=env.packs.get('world.crows-equipment').docs[0];assert.equal(doc.img,incoming.img);

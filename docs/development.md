@@ -116,7 +116,7 @@ without prerequisites use an empty string. The legacy Python generator uses the
 same format. Re-extract and review/import to update previously imported traits;
 the usual local-edit preservation rules still apply. Printed naming typos are normalized
 as in the existing importer. Descriptions are escaped and use a generic book icon;
-curated trait icons remain to be integrated.
+curated trait icons are now applied from the reviewed core-icon map.
 
 All background fields, common-kit values, connection descriptions and trait system
 fields match the Python oracle. Backgrounds also pass the existing system's actual
@@ -156,8 +156,9 @@ The folder preview includes NPC summaries, `actors`, `npcRecords`, and
 embedded Items without saving them. The user has confirmed the import workflow in live Foundry; browser tests use the real PDF.js worker and compare all
 71 creatures, while isolated tests exercise the validation path with test doubles.
 
-All 734 Item mappings match the old Python builder's gameplay fields and default
-icons. Browser DOM checks also match all 734 descriptions' text, emphasis and
+All 734 Item mappings match the earlier builder's gameplay fields. Curated icon
+choices are checked separately against the installed Foundry core icon library.
+Browser DOM checks also match all 734 descriptions' text, emphasis and
 tier-table shape, allowing the documented spacing differences. These checks do
 not replace validation against a running Foundry world's actual Item class.
 
@@ -185,7 +186,7 @@ system importer's tracking flags; a preview never marks an Item as imported.
 
 Extraction maps each printed card independently, using Foundry's generic default
 icons. The import review then resolves repeated definitions and retains existing
-artwork. Curated icons for fresh imports and creature artwork upload remain to do.
+artwork. Curated icons now cover fresh equipment and trait imports; creature artwork upload remains to do.
 
 ## Import verification
 

@@ -1,4 +1,5 @@
 import {escapeHTML} from './card-parser.mjs';
+import {iconForItem} from './item-icons.mjs';
 
 const scope='fvtt-crows-pdf-importer';
 const aliases={'Quiver of 20 Arrows':'Quiver of Arrows','Case of 20 Crossbow Bolts':'Case of Crossbow Bolts','Case of Bolts':'Case of Crossbow Bolts','Strong Poison':'Strong Poison Vial'};
@@ -80,7 +81,8 @@ export function cardToItem(card) {
   };
   // Separate provenance from the system importer's importSource fingerprint.
   // Page/index locate the printed card; name+type identify the proposed Item.
-  return {name,type:'equipment',img:icons[spell||card.name==='Lore Book'?'book':weapon?'weapon':card.armor_ad!=null?'armor':'default'],system,
+  const fallback=icons[spell||card.name==='Lore Book'?'book':weapon?'weapon':card.armor_ad!=null?'armor':'default'];
+  return {name,type:'equipment',img:iconForItem(name,card.name,fallback),system,
     flags:{[scope]:{schemaVersion:1,source:{set:card.source,page:card.page,cardIndex:card.card_index,name:card.name},
       crafting:structuredClone(card.crafting??null),variants:structuredClone(card.variants??{}),spell:structuredClone(spell??null),magicSlot:card.magic_slot??null}}};
 }

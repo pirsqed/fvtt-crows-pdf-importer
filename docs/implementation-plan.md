@@ -9,7 +9,7 @@
    descriptions pass browser text/emphasis/table checks. The preview validates
    unsaved Items in a live world. Confirm that validation in Foundry next.
 4. Complete: 276 trait Item mappings, corrections, prerequisites and connected-trait
-   metadata across 23 trees. Curated icons remain; current previews use book icons.
+   metadata across 23 trees. Curated trait icons are applied on fresh imports.
 5. Complete extraction/mapping: 36 backgrounds, common/full starting kits and 10
    NPC connection benefits. All match the legacy schema; background data passes
    the existing creator validator. Reviewed imports now publish a world snapshot
@@ -29,8 +29,8 @@
    the module directly. Missing/disabled/unavailable modules show setup guidance;
    the legacy importer remains an explicit option. The setup guide and READMEs
    describe browser PDF-folder extraction and reviewed imports.
-   Next: verify saving and character creation in live Foundry; add remaining artwork
-   and fresh-import icons. Automated repeat/failure/cancel checks pass. Package only runtime source/assets and
+   Next: verify saving and character creation in live Foundry; add remaining artwork.
+   Automated repeat/failure/cancel checks pass. Package only runtime source/assets and
    license/readme files; exclude tests, fixtures, PDFs, generated content and node_modules.
 10. Configure the GitHub remote, release URLs and distribution pipeline when ready.
    Remove obsolete Python/MuPDF shipping paths from the system after replacement.

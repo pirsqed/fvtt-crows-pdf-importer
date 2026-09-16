@@ -28,7 +28,7 @@ test('Lore Books use the printed expertise to distinguish variants and keep unsp
     const input=card({name:'Lore Book',body_html:`This book relates to the <b>${expertise}</b>\nLore expertise. Study this book.`});
     const before=structuredClone(input),item=cardToItem(input);
     assert.equal(item.name,`Lore Book (${expertise})`);
-    assert.equal(item.img,'icons/sundries/books/book-worn-brown.webp');
+    assert.equal(item.img,'icons/sundries/books/book-embossed-bound-brown.webp');
     assert.equal(item.flags['fvtt-crows-pdf-importer'].source.name,'Lore Book');
     assert.deepEqual(input,before);
     assert.match(item.system.description,/Study this book/);
@@ -47,6 +47,13 @@ test('armor, supplies, usage dice and improvised attacks map to usable system fi
   const vial=cardToItem(card({body_html:'Make a ranged 5 attack using Agility.',tiers:{t2:'2 damage',t3:'4 damage'},ud:{max:4,flags:['Rest']}}));
   assert.equal(vial.system.weapon.attackFormula,'2d10 + A');assert.equal(vial.system.weapon.range,'Ranged 5');
   assert.equal(vial.system.consumable.udTrigger,'Rest');assert.equal(vial.system.consumable.currentUD,4);
+});
+
+test('fresh imports use curated named icons before category fallbacks',()=>{
+  assert.equal(cardToItem(card({name:'Axe',weapon:{range:'Melee 1'}})).img,'icons/weapons/axes/axe-battle-broad-stone.webp');
+  assert.equal(cardToItem(card({name:'Coin Purse'})).img,'icons/commodities/currency/coins-plain-pouch-gold.webp');
+  assert.equal(cardToItem(card({name:'Animal Form Book',spell:{rank:0}})).img,'icons/sundries/books/book-clasp-spiral-green.webp');
+  assert.equal(cardToItem(card({name:'Unlisted Tool'})).img,'icons/svg/item-bag.svg');
 });
 
 test('PDF markup is escaped in every rendered description section',()=>{

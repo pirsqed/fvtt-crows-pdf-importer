@@ -12,6 +12,8 @@ First release of the browser-based Crows playtest importer.
 - Preserve local edits and custom artwork by default; optionally overwrite
   imported fields and creature inventories after review.
 - Separate Lore Book variants by their printed expertise and use book icons.
+- Use curated Foundry icons for named equipment, loot and traits in fresh imports;
+  upgrade earlier generic placeholders on re-import while retaining custom art.
 - Store trait prerequisite alternatives with a pipe separator.
 - Show progress, cancellation, validation and import results in a Crow-style UI.
 
