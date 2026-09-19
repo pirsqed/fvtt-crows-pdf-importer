@@ -53,7 +53,7 @@ export function openImportReview(report){
     </footer>`;
 
   const $=id=>dialog.querySelector(`[data-id="${id}"]`),choices={};let review=null,controller=null,busy=false,closed=false;
-  const excluded=new Set(),entryKey=(pack,doc)=>`${pack.config.name}:${doc.type}:${doc.name}:${doc.system.tree??''}`;
+  const excluded=new Set(),entryKey=(pack,doc)=>`${pack.config.name}:${doc.type}:${doc.name}:${doc.system?.tree??''}`;
   const invalidate=()=>{review=null;$('save-import').disabled=true;$('import-changes').replaceChildren();$('import-status').textContent='Check the world to review your current selection.';$('import-status').className='';};
   $('force-overwrite').onchange=()=>{invalidate();$('import-status').textContent='Import mode changed. Check world and review changes again.';};
   const selectedBundle=()=>{

@@ -1,6 +1,7 @@
 // Uses the Foundry-installed PDF.js supplied by the caller; no MuPDF dependency.
 import {cards,traits} from './layout-parser.mjs';
 import {npcs} from './npc-parser.mjs';
+import {parseRefTables,REF_TABLE_PAGES} from './ref-tables.mjs';
 import {characterLines,parseCharacterBook,traitItems} from './characters-parser.mjs';
 const bounds=ps=>[Math.min(...ps.map(p=>p[0])),Math.min(...ps.map(p=>p[1])),Math.max(...ps.map(p=>p[0])),Math.max(...ps.map(p=>p[1]))];
 const point=([x,y],m)=>[m[0]*x+m[2]*y+m[4],m[1]*x+m[3]*y+m[5]];
@@ -91,7 +92,7 @@ export async function readLayout(page,pdfjs){
 export async function extractPage(bytes,pageNumber,kind,{pdfjs,baseURL,worker,source='unknown',onProgress=()=>{}}={}){
   if(!pdfjs)throw new Error('PDF.js must be supplied by the host.');
   if(pdfjs.version!=='4.0.379')throw new Error(`This prototype was validated with PDF.js 4.0.379; found ${pdfjs.version}. Recheck the font/path adapter before using this version.`);
-  if(!['cards','traits','npcs','characters'].includes(kind))throw new Error('Choose cards, traits, NPCs or Characters book.');
+  if(!['cards','traits','npcs','ref','characters'].includes(kind))throw new Error('Choose cards, traits, NPCs, Ref or Characters book.');
   const task=pdfjs.getDocument({data:bytes.slice(),worker,fontExtraProperties:true,disableFontFace:true,isEvalSupported:false,useWorkerFetch:!!baseURL && /^https?:/.test(baseURL),
     ...(baseURL?{cMapUrl:new URL('web/cmaps/',baseURL).href,cMapPacked:true,standardFontDataUrl:new URL('web/standard_fonts/',baseURL).href}:{} )});
   // No password prompt in this probe: reject rather than wait indefinitely.
@@ -122,23 +123,26 @@ export async function extractPage(bytes,pageNumber,kind,{pdfjs,baseURL,worker,so
       if(documents.length!==276)throw new Error(`Expected 276 traits; found ${documents.length}. Check the Characters book version.`);
       return {kind,source,pages,documents,characterData:parseCharacterBook(bookPages)};
     }
-    if(kind==='npcs'){
+    if(kind==='npcs'||kind==='ref'){
       const numbers=pageNumber===null?Array.from({length:doc.numPages},(_,i)=>i+1):[pageNumber];
       if(numbers.some(n=>!Number.isInteger(n)||n<1||n>doc.numPages))throw new Error(`Page must be between 1 and ${doc.numPages}.`);
-      const npcRecords=[],pages=[];onProgress({page:0,total:numbers.length});
+      const npcRecords=[],pages=[],tableLayouts=[];onProgress({page:0,total:numbers.length});
       for(const [index,number] of numbers.entries()){
         const page=await doc.getPage(number);
         try{
           const content=await page.getTextContent();
           const text=content.items.map(item=>item.str??'').join(' ');
-          const records=/Power\s*:/.test(text)?npcs(await readLayout(page,pdfjs),number):[];
+          const hasNPCs=/Power\s*:/.test(text),hasTables=kind==='ref'&&REF_TABLE_PAGES.has(number);
+          const layout=hasNPCs||hasTables?await readLayout(page,pdfjs):null;
+          if(hasTables)tableLayouts.push({page:number,...layout});
+          const records=hasNPCs?npcs(layout,number):[];
           npcRecords.push(...records);pages.push({page:number,npcs:records.length});
         }catch(error){throw new Error(`Page ${number}: ${error.message}`);}
         finally{page.cleanup();}
         onProgress({page:index+1,total:numbers.length});
       }
       if(!npcRecords.length)throw new Error('No creature stat blocks found. Check the Ref book assignment and packet version.');
-      return {kind,source,pages,npcRecords};
+      return {kind,source,pages,npcRecords,...(kind==='ref'?parseRefTables(tableLayouts):{})};
     }
     if(pageNumber===null){
       if(kind!=='cards')throw new Error('Whole-book extraction currently supports inventory cards only.');

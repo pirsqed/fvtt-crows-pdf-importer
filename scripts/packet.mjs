@@ -1,5 +1,5 @@
 import {finalizeBackgrounds} from './characters-parser.mjs';
-export const CARD_SETS={core:'Core inventory',profession:'Profession inventory',poi:'POIs and dungeons',ref:'Ref book — all creatures',characters:'Characters — backgrounds, connections and traits'};
+export const CARD_SETS={core:'Core inventory',profession:'Profession inventory',poi:'POIs and dungeons',ref:'Ref book — creatures and rollable tables',characters:'Characters — backgrounds, connections and traits'};
 export const filePath=file=>file.webkitRelativePath||file.name;
 
 /** Filename discovery only. File contents are read after the user starts extraction. */
@@ -9,7 +9,7 @@ export function discoverPacket(files){
     let source='',reason='Not supported for batch extraction yet; assign a content type only if this is a renamed supported PDF.';
     if(path.split(/[\\/]/).some(part=>part.startsWith('.')||part==='__MACOSX'))reason='Hidden or archive metadata copy; skipped.';
     else if(/annotated/.test(name))reason='Annotated copy; skipped to avoid duplicate cards.';
-    else if(/ref(?:eree)?[ _-]+book/.test(name)){source='ref';reason='Ref book detected; extracts all creature stat blocks.';}
+    else if(/ref(?:eree)?[ _-]+book/.test(name)){source='ref';reason='Ref book detected; extracts creature stat blocks and rollable tables.';}
     else if(/characters/.test(name)){source='characters';reason='Characters book detected; extracts backgrounds, NPC connections and trait trees.';}
     else if(/cards/.test(name) && !/sheet/.test(name)){
       source=/profession/.test(name)?'profession':/poi|dungeon/.test(name)?'poi':'core';reason='Detected from filename.';
@@ -49,7 +49,7 @@ export function extractPacketFile(entry,{signal,onProgress=()=>{},timeout=30000}
     };
     entry.file.arrayBuffer().then(bytes=>{
       if(finished)return;
-      worker.postMessage({bytes,page:null,kind:entry.source==='ref'?'npcs':entry.source==='characters'?'characters':'cards',source:entry.source,baseURL:new URL('../../../scripts/pdfjs/',import.meta.url).href},[bytes]);
+      worker.postMessage({bytes,page:null,kind:entry.source==='ref'?'ref':entry.source==='characters'?'characters':'cards',source:entry.source,baseURL:new URL('../../../scripts/pdfjs/',import.meta.url).href},[bytes]);
     }).catch(error=>finish(error));
   });
 }
@@ -58,7 +58,7 @@ export async function extractPacket(entries,{signal,onProgress=()=>{},extractFil
   const review=reviewPacket(entries);
   if(review.errors.length)throw new Error(review.errors.join(' '));
   if(!review.selected.length)throw new Error('Select at least one supported PDF.');
-  const report={files:[],documents:[],parsedCards:[],actors:[],npcRecords:[],backgrounds:[],connections:[],backgroundIssues:[],errors:[],missing:review.missing};
+  const report={files:[],documents:[],parsedCards:[],actors:[],npcRecords:[],tables:[],tableWarnings:[],backgrounds:[],connections:[],backgroundIssues:[],errors:[],missing:review.missing};
   for(const [index,entry] of review.selected.entries()){
     if(signal?.aborted)throw cancelled();
     const progress=detail=>onProgress({file:entry.path,index:index+1,files:review.selected.length,...detail});
@@ -69,6 +69,7 @@ export async function extractPacket(entries,{signal,onProgress=()=>{},extractFil
       report.files.push({path:entry.path,source:entry.source,pages:result.pages,cards:result.parsedCards?.length??0,npcs:result.npcRecords?.length??0,traits:result.documents?.filter(item=>item.type==='trait').length??0});
       report.documents.push(...result.documents??[]);report.parsedCards.push(...result.parsedCards??[]);
       report.actors.push(...result.actors??[]);report.npcRecords.push(...result.npcRecords??[]);
+      report.tables.push(...result.tables??[]);report.tableWarnings.push(...result.tableWarnings??[]);
       if(result.characterData)report.characterData=result.characterData;
     }catch(error){
       if(signal?.aborted||error.name==='AbortError')throw cancelled();

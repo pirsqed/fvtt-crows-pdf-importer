@@ -1,0 +1,38 @@
+// Run against a local, user-owned PDF; extracted content is never committed.
+import {readFile} from 'node:fs/promises';
+import {pathToFileURL} from 'node:url';
+import assert from 'node:assert/strict';
+import {extractPage} from '../scripts/extract.mjs';
+import {npcToActor} from '../scripts/npc-parser.mjs';
+import {resolveImport,prepareImport,executeImport} from '../scripts/import-content.mjs';
+import {adapter,setupImport} from './import-harness.mjs';
+const baseURL=pathToFileURL(process.env.FOUNDRY_PDFJS??'C:/Program Files/Foundry Virtual Tabletop/resources/app/node_modules/@foundryvtt/pdfjs/').href;
+const pdfjs=await import(new URL('build/pdf.mjs',baseURL));
+pdfjs.GlobalWorkerOptions.workerSrc=new URL('build/pdf.worker.mjs',baseURL).href;
+const file=process.env.CROWS_REF_PDF??new URL('../../playtest2_pdfs/03 Crows The Ref Book for Playtest 2.pdf',import.meta.url);
+const result=await extractPage(new Uint8Array(await readFile(file)),null,'ref',{pdfjs,baseURL,source:'ref'});
+assert.equal(result.tables.length,26);
+assert.equal(result.tables.reduce((sum,t)=>sum+t.results.length,0),404);
+for(const table of result.tables){
+  const die=Number(table.formula.slice(2));
+  for(let roll=1;roll<=die;roll++)assert.equal(table.results.filter(r=>r.range[0]<=roll&&r.range[1]>=roll).length,1,`${table.name}: ${roll}`);
+  assert.ok(table.results.every(r=>r.description.length>0));
+}
+const minor=result.tables.find(t=>t.name==='Minor Interesting Things');
+const at=roll=>minor.results.find(r=>r.range[0]<=roll&&r.range[1]>=roll).description;
+assert.match(at(45),/Lockpick/);assert.match(at(46),/Gem/);assert.match(at(57),/steel crossbow bolts/);
+assert.match(at(58),/Fine torch/);assert.equal(at(58),at(59));
+assert.equal(result.tables.find(t=>t.name==='Undead Dungeon Encounters').formula,'1d10');
+const major=result.tables.find(t=>t.name==='Major Interesting Things');
+assert.deepEqual(major.results.at(-1).range,[101,Number.MAX_SAFE_INTEGER]);
+assert.match(major.results.at(-1).description,/Archmage obsidian weapon/);
+const encounters=result.tables.find(t=>t.name==='Miasma-Touched Encounters');
+assert.match(encounters.results[0].description,/^Bandits:/);
+assert.match(encounters.results.at(-1).description,/one by one\.$/);
+setupImport();
+const bundle=resolveImport({documents:[],actors:result.npcRecords.map(npcToActor),tables:result.tables});
+await executeImport(await prepareImport(bundle,{adapter}),{adapter});
+const repeat=await prepareImport(bundle,{adapter});
+assert.equal(repeat.counts.unchanged,result.tables.length+result.npcRecords.length);
+assert.equal(repeat.counts.update+repeat.counts.create+repeat.counts.preserve,0);
+console.log({pages:result.pages.length,creatures:result.npcRecords.length,tables:result.tables.length,results:404,repeat:repeat.counts});

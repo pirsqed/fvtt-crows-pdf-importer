@@ -3,6 +3,12 @@ import assert from 'node:assert/strict';
 import {discoverPacket,reviewPacket,extractPacket,extractPacketFile} from '../scripts/packet.mjs';
 const file=(name,path=name)=>({name,webkitRelativePath:path,arrayBuffer(){throw new Error('Discovery must not read files.');}});
 
+test('Ref packet keeps tables and correction notes available for review',async()=>{
+  const table={name:'Example',formula:'1d6',results:[]};
+  const result=await extractPacket(discoverPacket([file('Ref Book.pdf')]),{extractFile:async()=>({pages:[],tables:[table],tableWarnings:['Correction applied']})});
+  assert.deepEqual(result.tables,[table]);assert.deepEqual(result.tableWarnings,['Correction applied']);assert.deepEqual(result.documents,[]);
+});
+
 test('folder discovery includes nested PDFs, excludes extra copies, and detects all three sets',()=>{
   const entries=discoverPacket([file('02 Crows Invetory Cards.pdf','Packet/Inventory/02 Crows Invetory Cards.pdf'),file('Cards by Profession.PDF'),file('Cards for POIs and Dungeons.pdf'),file('Cards Annotated.pdf'),file('Characters Book.pdf'),file('picture.webp'),file('Cards.pdf','Packet/__MACOSX/Cards.pdf')]);
   assert.equal(entries.length,6);assert.deepEqual(reviewPacket(entries).missing,['ref']);

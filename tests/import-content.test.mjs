@@ -7,6 +7,40 @@ const report=documents=>({documents,actors:[],backgrounds:[],connections:[]});
 const prepare=bundle=>prepareImport(bundle,{adapter});
 const execute=(review,options={})=>executeImport(review,{adapter,...options});
 
+test('RollTables import separately, replace stale results and preserve local edits',async()=>{
+  const env=setupImport();
+  const table={name:'Encounters',formula:'1d2',results:[{type:'text',description:'First',range:[1,1],weight:1},{type:'text',description:'Second',range:[2,2],weight:1}]};
+  const bundle=resolveImport({...report([]),tables:[table]});
+  assert.equal(bundle.packs[0].config.type,'RollTable');
+  await execute(await prepare(bundle));
+  const pack=env.packs.get('world.crows-ref-tables'),doc=pack.docs[0],id=doc.id;
+  assert.equal((await prepare(bundle)).counts.unchanged,1);
+  table.results=[{type:'text',description:'Replacement',range:[1,2],weight:2}];
+  const changed=resolveImport({...report([]),tables:[table]});
+  assert.equal((await prepare(changed)).counts.update,1);
+  await execute(await prepare(changed));
+  assert.equal(doc.id,id);assert.equal(doc.toObject().results.length,1);
+  assert.equal(doc.toObject().results[0].description,'Replacement');
+  assert.equal((await prepare(changed)).counts.unchanged,1);
+  doc.edit(data=>{data.results[0].description='Local result';});
+  assert.equal((await prepare(changed)).counts.preserve,1);
+  await execute(await prepare(changed));assert.equal(doc.toObject().results[0].description,'Local result');
+  await execute(await prepareImport(changed,{adapter,forceOverwrite:true}));
+  assert.equal(doc.toObject().results[0].description,'Replacement');
+  pack.locked=true;await assert.rejects(prepare(changed),/locked/);
+});
+
+test('malformed RollTables and changed table reviews cannot write',async()=>{
+  const env=setupImport(),table={name:'Table',formula:'1d6',results:[{range:[6,1]}]};
+  await assert.rejects(prepare(resolveImport({...report([]),tables:[table]})),/Invalid table/);
+  assert.deepEqual(env.writes,[]);
+  table.results=[{range:[1,6],description:'Original'}];
+  const bundle=resolveImport({...report([]),tables:[table]});
+  await execute(await prepare(bundle));const review=await prepare(bundle);
+  env.packs.get('world.crows-ref-tables').docs[0].edit(data=>{data.results[0].description='Edited after review';});
+  env.writes.length=0;await assert.rejects(execute(review),/changed since the review/);assert.deepEqual(env.writes,[]);
+});
+
 test('resolution prefers core, collapses identical copies and requires choices for conflicting loot',()=>{
   const data=report([item(),item(),item('Tool',4,'profession'),item('Relic',1,'poi'),item('Relic',2,'poi')]);
   const bundle=resolveImport(data);assert.equal(bundle.professionCopies,1);assert.equal(bundle.repeated,1);assert.equal(bundle.unresolved.length,1);

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Extract all 21 numbered Ref book tables and five climate/season weather tables into a selectable Ref Tables RollTable compendium (404 results).
+- Retain multi-page descriptions, source references, weighted ranges and the special 101+ treasure result. Apply approved Minor Interesting Things and undead encounter errata.
+- Validate and re-import RollTables through the paired system importer, preserving local edits by default.
+
 ## 0.1.0
 
 First release of the browser-based Crows playtest importer.

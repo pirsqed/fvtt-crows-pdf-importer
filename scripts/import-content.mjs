@@ -4,7 +4,8 @@ export const PACKS=[
   {name:'crows-equipment',label:'Equipment & Spellbooks',file:'equipment.json',type:'Item'},
   {name:'crows-dungeon-loot',label:'Dungeon Loot & Relics',file:'dungeon-loot.json',type:'Item'},
   {name:'crows-traits',label:'Traits',file:'traits.json',type:'Item'},
-  {name:'crows-bestiary',label:'Bestiary',file:'monsters.json',type:'Actor'}
+  {name:'crows-bestiary',label:'Bestiary',file:'monsters.json',type:'Actor'},
+  {name:'crows-ref-tables',label:'Ref Tables',file:'ref-tables.json',type:'RollTable'}
 ];
 const clone=structuredClone;
 const key=doc=>`${doc.type}:${doc.name.trim().toLowerCase()}${doc.type==='trait'?':'+String(doc.system.tree??'').trim().toLowerCase():''}`;
@@ -15,8 +16,8 @@ export const systemAdapter=()=>import(new URL('../../../systems/fvtt-crows-syste
 
 export function resolveImport(report,choices={}){
   const groups=new Map();let repeated=0,professionCopies=0;
-  for(const doc of [...report.documents,...report.actors]){
-    const pack=doc.type==='monster'?PACKS[3]:doc.type==='trait'?PACKS[2]:doc.flags?.[SCOPE]?.source?.set==='poi'?PACKS[1]:PACKS[0];
+  for(const doc of [...report.documents,...report.actors,...report.tables??[]]){
+    const pack=doc.results?PACKS[4]:doc.type==='monster'?PACKS[3]:doc.type==='trait'?PACKS[2]:doc.flags?.[SCOPE]?.source?.set==='poi'?PACKS[1]:PACKS[0];
     const id=pack.name+':'+key(doc);if(!groups.has(id))groups.set(id,{id,pack,documents:[]});groups.get(id).documents.push(doc);
   }
   const conflicts=[],packs=PACKS.map(config=>({config,data:[]}));

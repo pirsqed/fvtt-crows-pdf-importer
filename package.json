@@ -6,7 +6,8 @@
   "license": "MIT",
   "description": "the Crows Foundry VTT PDF importer",
   "scripts": {
-    "test": "node --test tests/module.test.mjs tests/card-parser.test.mjs tests/item-mapper.test.mjs tests/packet.test.mjs tests/npc-parser.test.mjs tests/characters-parser.test.mjs tests/import-content.test.mjs",
+    "test": "node --test tests/module.test.mjs tests/card-parser.test.mjs tests/item-mapper.test.mjs tests/packet.test.mjs tests/npc-parser.test.mjs tests/characters-parser.test.mjs tests/import-content.test.mjs tests/ref-tables.test.mjs",
+    "test:tables": "node tests/ref-tables-compare.mjs",
     "test:import": "node tests/import-fixtures.mjs",
     "test:characters": "node tests/characters-compare.mjs",
     "test:npcs": "node tests/npcs-compare.mjs",
