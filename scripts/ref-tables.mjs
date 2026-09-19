@@ -96,10 +96,8 @@ export function parseRefTables(layouts){
     if(notes.length)warnings.push(...notes.map(note=>`${name}: ${note}`));
     tables.push(document(name,formulaDie,rows,[...new Set(segments.map(s=>s.page))],notes));
   }
-  const [, ...weather]=readTableCells(byPage.get(1),segment(1,1,102,222,5));
-  for(const [climate,events] of weather){
-    const choices=events.split(' or ');if(choices.length!==2)throw new Error('Expected two weather choices per climate.');
-    tables.push(document(`Bad Weather — ${climate}`,2,choices.map((text,i)=>({text,range:[i+1,i+1]})),[1],['Choose the climate or season first. On any die, odd selects the first event and even selects the second. Weather lasts 24 hours; see pages 1–2 for effects.']));
-  }
+  const weather=tables.find(t=>t.name==='Travel Encounters').results.find(r=>r.name==='Bad Weather');
+  if(!weather)throw new Error('Travel Encounters: missing Bad Weather result. Check the Ref book version.');
+  weather.description+=' — Use the Bad Weather table for the current climate or season in the Ref Book for Playtest 2, page 1. Roll any die: odd selects the first listed event; even selects the second. Weather lasts 24 hours; see pages 1–2 for effects.';
   return {tables,tableWarnings:warnings};
 }

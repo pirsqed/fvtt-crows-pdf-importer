@@ -190,8 +190,8 @@ artwork. Curated icons now cover fresh equipment and trait imports; creature art
 
 ## Import verification
 
-`npm run test:tables` extracts the user-owned Playtest 2 Ref PDF, checks all 26
-tables / 404 results, verifies complete die coverage and the approved errata,
+`npm run test:tables` extracts the user-owned Playtest 2 Ref PDF, checks all 21
+tables / 394 results, verifies complete die coverage and the approved errata,
 and checks repeat imports alongside all 71 creatures. Set `CROWS_REF_PDF` to
 override the PDF path and `FOUNDRY_PDFJS` to override the installed PDF.js path.
 The parser uses ruled-cell geometry and a version-specific page/region map;
@@ -199,7 +199,7 @@ unexpected headers, row counts, empty cells, or uncovered/overlapping results
 fail extraction. It bundles no result text. Unit tests cover wrapped cells and
 table replacement, edit protection, invalid data, locks and stale reviews.
 
-The browser packet check now imports 547 documents, including 26 RollTables,
+The browser packet check now imports 542 documents, including 21 RollTables,
 and verifies all remain unchanged on repeat import. The original content-only
 fixture run below still covers its 521 Item/Actor documents. RollTable payloads
 have also been checked against the installed Foundry 14.367 base document

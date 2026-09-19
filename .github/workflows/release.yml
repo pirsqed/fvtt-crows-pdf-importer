@@ -23,7 +23,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Fixture-free tests
-        run: node --test tests/module.test.mjs tests/card-parser.test.mjs tests/item-mapper.test.mjs tests/packet.test.mjs tests/npc-parser.test.mjs tests/characters-parser.test.mjs
+        run: node --test tests/module.test.mjs tests/card-parser.test.mjs tests/item-mapper.test.mjs tests/packet.test.mjs tests/npc-parser.test.mjs tests/characters-parser.test.mjs tests/ref-tables.test.mjs
       - name: Packaging tests
         run: python -m unittest discover -s tests -p test_release.py
       - name: Build release assets

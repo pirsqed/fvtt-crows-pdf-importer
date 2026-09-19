@@ -2,7 +2,7 @@
   "id": "fvtt-crows-pdf-importer",
   "title": "Crows PDF Importer",
   "description": "Import your own Crows playtest PDFs: inventory, creatures, trait trees, backgrounds and NPC connections, with reviewed world-compendium imports and character-creation integration.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "compatibility": {
     "minimum": "14",
     "verified": "14.367"
@@ -17,7 +17,10 @@
     "systems": [
       {
         "id": "fvtt-crows-system",
-        "type": "system"
+        "type": "system",
+        "compatibility": {
+          "minimum": "0.2.2"
+        }
       }
     ]
   },

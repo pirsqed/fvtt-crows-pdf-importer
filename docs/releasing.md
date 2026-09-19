@@ -2,11 +2,10 @@
 
 ## Current preparation
 
-Version 0.1.0 is prepared locally. Nothing has been published by this preparation.
-The module requires the paired system's import adapter, creator integration and
-force-overwrite support. Coordinate the compatible system release before marking
-the module release public; do not assume the previously published system 0.2.0
-has those changes solely because the development checkout uses that number.
+Version 0.1.1 is prepared locally, paired with Crows system v0.2.2 or later.
+The system must provide RollTable imports as well as the import adapter, creator
+integration, and force-overwrite support. Travel-branch work is deferred.
+Nothing has been published by this preparation.
 
 ## Build and check
 
@@ -15,7 +14,7 @@ Run from the module repository root:
 ```sh
 npm test
 python -m unittest discover -s tests -p test_release.py
-python tools/build_release.py --repository OWNER/REPOSITORY --tag v0.1.0
+python tools/build_release.py --repository pirsqed/fvtt-crows-pdf-importer --tag v0.1.1
 ```
 
 The repository argument supplies installation URLs without changing the source
@@ -31,7 +30,7 @@ Outputs in ignored `dist/`:
 - `module.json`: the same manifest embedded in the ZIP.
 - `SHA256SUMS.txt`: checksums for both assets.
 
-Run `npm run test:items`, `npm run test:characters`, `npm run test:import` and
+Run `npm run test:tables`, `npm run test:items`, `npm run test:characters`, `npm run test:import` and
 `npm run test:browser` locally with the private fixtures described in
 [development.md](development.md). The hosted workflow runs only fixture-free
 tests that do not require the sibling system checkout or a Foundry installation.
@@ -47,7 +46,7 @@ tests that do not require the sibling system checkout or a Foundry installation.
    enable the module, import a small selection, publish a full creator library,
    create a Crow, repeat the import, and check force overwrite on test entries.
 6. Publish the draft only when the compatible system is available. The installation
-   URL is `https://github.com/OWNER/REPOSITORY/releases/latest/download/module.json`.
+   URL is `https://github.com/pirsqed/fvtt-crows-pdf-importer/releases/latest/download/module.json`.
 
 Draft assets are not public installation links. The downloadable manifest points
 at a version-specific ZIP, so a later tag cannot change that release's payload.

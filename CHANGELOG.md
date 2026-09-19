@@ -1,10 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.1.1 — prepared
 
-- Extract all 21 numbered Ref book tables and five climate/season weather tables into a selectable Ref Tables RollTable compendium (404 results).
+- Extract all 21 numbered Ref book tables into a selectable Ref Tables RollTable compendium (394 results). Bad Weather includes an odd/even reminder and Ref book page references.
 - Retain multi-page descriptions, source references, weighted ranges and the special 101+ treasure result. Apply approved Minor Interesting Things and undead encounter errata.
 - Validate and re-import RollTables through the paired system importer, preserving local edits by default.
+
+- Improve curated equipment and trait icons.
+
+Requires Foundry 14 and Crows system v0.2.2 or later for RollTable imports. No PDFs or extracted game content are bundled. Travel-branch features are deferred.
 
 ## 0.1.0
 

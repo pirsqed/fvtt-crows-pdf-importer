@@ -14,10 +14,10 @@ export async function testPacketBrowser(page,modulePath,cards){
   assert.equal(await $('assignments').locator('select').evaluateAll(selects=>selects.filter(select=>select.value).length),5);
   const run=async()=>{await $('extract').click();await page.waitForFunction(()=>document.querySelector('[data-id="abort"]').disabled,{},{timeout:60000});};
   await run();
-  assert.match(await $('packet-status').textContent(),/^Extraction complete: 5 PDFs, 142 pages, 1010 proposed Items, 71 proposed NPC Actors, 26 rollable tables, 36 ready backgrounds, 10 NPC connection benefits/);
+  assert.match(await $('packet-status').textContent(),/^Extraction complete: 5 PDFs, 142 pages, 1010 proposed Items, 71 proposed NPC Actors, 21 rollable tables, 36 ready backgrounds, 10 NPC connection benefits/);
   const result=JSON.parse(await $('packet-result').textContent());
   assert.deepEqual(result.errors,[]);
-  assert.equal(result.tables.length,26);assert.equal(result.tables.reduce((n,t)=>n+t.results.length,0),404);
+  assert.equal(result.tables.length,21);assert.equal(result.tables.reduce((n,t)=>n+t.results.length,0),394);
   for(const source of ['core','profession','poi']){
     assert.deepEqual(compareCards(cards.filter(c=>c.source===source).flatMap(c=>c.expected),result.parsedCards.filter(c=>c.source===source)),[]);
   }

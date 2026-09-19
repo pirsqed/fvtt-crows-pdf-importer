@@ -36,7 +36,7 @@ export async function testImportBrowser(page,modulePath,report){
   await $('select-all').click();
   assert.ok(await $('entry-list').locator('input:checked').count()>1);
   await $('search').fill('');await $('select-all').click();await $('publish-creator').check();
-  await review();assert.match(await $('import-status').textContent(),/547 new/);
+  await review();assert.match(await $('import-status').textContent(),/542 new/);
   await page.evaluate(()=>document.querySelector('dialog:last-of-type').scrollTop=0);
   await page.screenshot({path:fileURLToPath(new URL('../out/import-review-ui.png',import.meta.url))});
   const viewport=page.viewportSize();await page.setViewportSize({width:600,height:850});
@@ -56,8 +56,8 @@ export async function testImportBrowser(page,modulePath,report){
   await review();await $('save-import').click();await page.waitForFunction(()=>!document.querySelector('[data-id="review-import"]').disabled);
   assert.match(await $('import-status').textContent(),/^Import complete/);assert.match(await $('import-status').textContent(),/Character-creation data published/);
   assert.equal(await page.evaluate(()=>game.settings.get().content.backgrounds.length),36);
-  await review();assert.match(await $('import-status').textContent(),/0 new, 0 updates, 547 unchanged/);
-  assert.equal(await page.evaluate(async()=>{const p=game.packs.get('world.crows-ref-tables');return p.documentName==='RollTable'&&(await p.getDocuments()).length;}),26);
+  await review();assert.match(await $('import-status').textContent(),/0 new, 0 updates, 542 unchanged/);
+  assert.equal(await page.evaluate(async()=>{const p=game.packs.get('world.crows-ref-tables');return p.documentName==='RollTable'&&(await p.getDocuments()).length;}),21);
   await $('close-import').click();
-  return {loreVariantsWithoutConflicts:true,staleReview:true,documents:547,published:true,repeatUnchanged:547};
+  return {loreVariantsWithoutConflicts:true,staleReview:true,documents:542,published:true,repeatUnchanged:542};
 }
