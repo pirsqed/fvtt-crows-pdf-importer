@@ -21,19 +21,33 @@ assert.ok(!result.tables.some(t=>t.name.startsWith('Bad Weather')));
 for(const table of result.tables){
   const die=Number(table.formula.slice(2));
   for(let roll=1;roll<=die;roll++)assert.equal(table.results.filter(r=>r.range[0]<=roll&&r.range[1]>=roll).length,1,`${table.name}: ${roll}`);
-  assert.ok(table.results.every(r=>r.description.length>0));
+  assert.ok(table.results.every(r=>r.name.length>0&&!r.name.endsWith('…')));
 }
 const minor=result.tables.find(t=>t.name==='Minor Interesting Things');
-const at=roll=>minor.results.find(r=>r.range[0]<=roll&&r.range[1]>=roll).description;
+const at=roll=>minor.results.find(r=>r.range[0]<=roll&&r.range[1]>=roll).name;
 assert.match(at(45),/Lockpick/);assert.match(at(46),/Gem/);assert.match(at(57),/steel crossbow bolts/);
 assert.match(at(58),/Fine torch/);assert.equal(at(58),at(59));
 assert.equal(result.tables.find(t=>t.name==='Undead Dungeon Encounters').formula,'1d10');
 const major=result.tables.find(t=>t.name==='Major Interesting Things');
 assert.deepEqual(major.results.at(-1).range,[101,Number.MAX_SAFE_INTEGER]);
-assert.match(major.results.at(-1).description,/Archmage obsidian weapon/);
+assert.match(major.results.at(-1).name,/Archmage obsidian weapon/);
 const encounters=result.tables.find(t=>t.name==='Miasma-Touched Encounters');
-assert.match(encounters.results[0].description,/^Bandits:/);
+assert.equal(encounters.results[0].name,'Bandits');
+assert.match(encounters.results[0].description,/^The humans are bandits/);
 assert.match(encounters.results.at(-1).description,/one by one\.$/);
+for(const name of ['Miasma-Touched Encounters','Traveler Encounters','Wild Animal Reaction']){
+  for(const row of result.tables.find(t=>t.name===name).results){
+    assert.ok(!row.name.includes(':'));assert.ok(row.description.length>0);
+    assert.ok(!row.description.startsWith(row.name+':'));
+  }
+}
+const travelers=result.tables.find(t=>t.name==='Traveler Encounters');
+assert.equal(travelers.results[0].name,'Animal Hunt');
+assert.match(travelers.results[0].description,/^The travelers hunt/);
+const rewards=result.tables.find(t=>t.name==='Traveler Rewards');
+assert.equal(rewards.results[0].name,'Nothing');
+assert.ok(rewards.results.every(r=>r.description===''));
+assert.match(rewards.results[1].name,/^A piece of useful information/);
 setupImport();
 const bundle=resolveImport({documents:[],actors:result.npcRecords.map(npcToActor),tables:result.tables});
 await executeImport(await prepareImport(bundle,{adapter}),{adapter});

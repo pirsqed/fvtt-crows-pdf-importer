@@ -57,7 +57,14 @@ function rangeOf(text){
 }
 
 function document(name,die,rows,pages,notes=[]){
-  const results=rows.map(({range,text})=>({type:'text',name:text.length>80?text.slice(0,77)+'…':text,description:escape(text),range,weight:range[1]===Number.MAX_SAFE_INTEGER?1:range[1]-range[0]+1,drawn:false}));
+  const results=rows.map(({range,text})=>{
+    const colon=text.indexOf(':');
+    // Reward entries are titles only; omit explanatory prose after the first sentence.
+    const titleOnly=name==='Traveler Rewards';
+    const title=titleOnly?text.split(/\.\s+/,1)[0]:colon===-1?text:text.slice(0,colon).trim();
+    const description=titleOnly||colon===-1?'':escape(text.slice(colon+1).trim());
+    return {type:'text',name:title,description,range,weight:range[1]===Number.MAX_SAFE_INTEGER?1:range[1]-range[0]+1,drawn:false};
+  });
   return {name,img:'icons/svg/d20-grey.svg',description:`<p>Ref Book for Playtest 2, pages ${pages.join(', ')}.</p>`+notes.map(n=>`<p>${escape(n)}</p>`).join(''),formula:`1d${die}`,replacement:true,displayRoll:true,results,
     flags:{[scope]:{source:{set:'ref',page:pages[0],pages},notes}}};
 }
@@ -98,6 +105,6 @@ export function parseRefTables(layouts){
   }
   const weather=tables.find(t=>t.name==='Travel Encounters').results.find(r=>r.name==='Bad Weather');
   if(!weather)throw new Error('Travel Encounters: missing Bad Weather result. Check the Ref book version.');
-  weather.description+=' — Use the Bad Weather table for the current climate or season in the Ref Book for Playtest 2, page 1. Roll any die: odd selects the first listed event; even selects the second. Weather lasts 24 hours; see pages 1–2 for effects.';
+  weather.description='Use the Bad Weather table for the current climate or season in the Ref Book for Playtest 2, page 1. Roll any die: odd selects the first listed event; even selects the second. Weather lasts 24 hours; see pages 1–2 for effects.';
   return {tables,tableWarnings:warnings};
 }
