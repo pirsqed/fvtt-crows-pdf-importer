@@ -1,8 +1,8 @@
 # Crows PDF Importer
 
-Import your own Crows playtest PDFs into Foundry VTT: equipment, dungeon loot, traits, creatures, backgrounds and NPC connections. Choose a packet folder, select the entries you want and review changes before saving.
+Import your own Crows playtest PDFs into Foundry VTT: equipment, dungeon loot, traits, creatures, rollable tables, backgrounds and NPC connections. Choose a packet folder, select the entries you want and review changes before saving.
 
-Requires **Foundry 14**, **Crows (Unofficial) v0.2.1** and a compatible importer module. The current adapter supports Foundry's bundled PDF.js **4.0.379**. Extraction runs in the browser.
+Requires **Foundry 14**, **Crows v0.2.1** and a compatible importer module. The current adapter supports Foundry's bundled PDF.js **4.0.379**. Extraction runs in the browser.
 
 ## Using the importer
 
@@ -10,7 +10,7 @@ The Ref imports the packet once for the world. Players then use the compendiums 
 
 ### 1. Install and enable
 
-Install **Crows PDF Importer (Unofficial)** alongside the system and enable it under **Settings → Manage Modules**. Reload the world. Open **Settings → Configure Settings → Crows (Unofficial) → Import Playtest Content**, or use **Open PDF Importer** in **Start Here**. No macro is needed.
+Install **Crows PDF Importer** alongside the system and enable it under **Settings → Manage Modules**. Reload the world. Open **Settings → Configure Settings → Crows → Import Playtest Content**, or use **Open PDF Importer** in **Start Here**. No macro is needed.
 
 Install the module release ZIP with `module.json` at the root of `Data/modules/fvtt-crows-pdf-importer` on the Foundry host, then restart Foundry. Until a public release is available, a development checkout can be installed at the same path. Pair it with Crows system v0.2.1. The system provides guidance if the module is missing, disabled or unavailable.
 
@@ -21,6 +21,12 @@ Extract your playtest ZIP on the computer running your browser. Keep the origina
 Choose **Packet folder** to include subfolders, or **Individual PDFs** to choose the books directly. Check each file's assigned content type; renamed files can be assigned manually. Skip duplicate copies and unrelated books. Click **Extract selected PDFs** and wait for the results, then **Choose entries & review →**.
 
 Extraction saves nothing to your world. **Extraction results** contains the per-book details; **Developer tools & extraction data** is available when troubleshooting.
+
+The Playtest 2 Ref book supplies **26 RollTables with 404 results** to **Crows Ref Tables**: 21 numbered encounter, reaction, merchant and treasure tables, plus five climate/season weather tables using d2 for odd/even choices. Multi-page descriptions and printed probabilities are retained. Results are text; references to another table or creature do not automatically roll or create tokens. Resistance-roll tiers, attack charts and the Merchant NPC lookup are not random tables.
+
+Approved Playtest 2 corrections: Minor Interesting Things uses 46 for gems, 57 for steel crossbow bolts, and 58–59 for the fine torch. The undead encounter table is named **Undead Dungeon Encounters** and uses **d10**. Source pages and corrections appear in table descriptions. Major Interesting Things retains its **101+** Greed Exchange result for modified rolls; the normal formula remains d100. Do not normalize this table, as that would change its printed ranges.
+
+This feature requires the accompanying system importer update for RollTable validation and saving. Update both development checkouts together. To import only tables, deselect all entries and choose the **Ref Tables** category, then select visible entries.
 
 ### 3. Select what to import
 
@@ -56,6 +62,8 @@ By default, re-importing updates unedited tracked Items, preserves local edits a
 
 **Stop after current entry** keeps completed changes. A failed import can also leave partial changes, especially during forced creature-inventory replacement. Read the result, correct the problem and review again before retrying. Creator content is published only after the import succeeds. After editing compendiums, repeat the review/import with **Update character-creation content** enabled to refresh what the creator uses.
 
+Table imports use the same local-edit protection. Updating an unedited table replaces its embedded results while retaining the table ID; force overwrite also replaces locally edited results. A failure during result replacement may leave partial results; resolve the failure and review with force overwrite to retry that entry.
+
 - **Missing starting spellbooks:** extract the core inventory PDF together with the Characters book.
 - **Missing creator reference:** include the named equipment, trait or pet, or turn off creator publishing for a standalone import.
 - **Preserved duplicate match:** resolve the duplicate compendium entries manually; force overwrite does not choose between them.
@@ -67,7 +75,7 @@ Named equipment, loot and traits use curated Foundry core icons. Items without a
 
 The user has confirmed extraction, imports and the updated UI in live Foundry. Automated checks cover parser comparisons, selective review, preservation/overwrite behavior, cancellation and repeat imports. These checks use local user-owned PDFs and an isolated Foundry test harness.
 
-See [development and validation](docs/development.md) for commands, API details, field mappings and remaining work. [The implementation plan](docs/implementation-plan.md) tracks integration and release tasks. Version 0.1.0 packaging and a draft-release workflow are prepared. See [release instructions](docs/releasing.md) for build commands, installation assets and the paired-system requirement. Public distribution is not yet live.
+See [development and validation](docs/development.md) for commands, API details, field mappings and remaining work. [The implementation plan](docs/implementation-plan.md) tracks integration and release tasks. Version 0.1.0 packaging and a draft-release workflow are prepared. See [release instructions](docs/releasing.md) for build commands, installation assets and the paired-system requirement.
 
 ## License
 
