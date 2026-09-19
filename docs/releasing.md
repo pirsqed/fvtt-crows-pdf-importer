@@ -50,3 +50,15 @@ tests that do not require the sibling system checkout or a Foundry installation.
 
 Draft assets are not public installation links. The downloadable manifest points
 at a version-specific ZIP, so a later tag cannot change that release's payload.
+
+## Stable manifest link
+
+The user-facing installation URL is:
+
+```text
+https://github.com/pirsqed/fvtt-crows-pdf-importer/releases/latest/download/module.json
+```
+
+Keep the asset named `module.json` on every stable release. Publish the Actions-generated draft as a stable release and ensure the intended release is marked Latest. Drafts and prereleases are not served by this stable-release link. Until a stable release with that asset exists, the link will not work.
+
+The generated manifest uses this stable URL for update checks, while its `download` points to the ZIP for its exact version. Do not substitute the raw source manifest from `main`: the build adds the installation URLs to the release asset. For a prerelease or a specific version, use that release's versioned `module.json` asset URL instead.

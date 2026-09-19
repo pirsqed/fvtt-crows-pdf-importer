@@ -10,9 +10,17 @@ The Ref imports the packet once for the world. Players then use the compendiums 
 
 ### 1. Install and enable
 
+From Foundry's Setup screen, open **Add-on Modules → Install Module**, paste this URL into **Manifest URL**, and click **Install**:
+
+```text
+https://github.com/pirsqed/fvtt-crows-pdf-importer/releases/latest/download/module.json
+```
+
+This link follows the latest published stable release. Enable the module in your world under **Settings → Manage Modules**, then reload. For a specific older version, use the `module.json` asset from that version's GitHub release.
+
 Install **Crows PDF Importer** alongside the system and enable it under **Settings → Manage Modules**. Reload the world. Open **Settings → Configure Settings → Crows → Import Playtest Content**, or use **Open PDF Importer** in **Start Here**. No macro is needed.
 
-Install the module release ZIP with `module.json` at the root of `Data/modules/fvtt-crows-pdf-importer` on the Foundry host, then restart Foundry. Until a public release is available, a development checkout can be installed at the same path. Pair importer v0.1.1 with Crows system v0.2.2 or later. The system provides guidance if the module is missing, disabled or unavailable.
+For manual installation, extract the module release ZIP with `module.json` at the root of `Data/modules/fvtt-crows-pdf-importer` on the Foundry host, then restart Foundry. Pair importer v0.1.1 with Crows system v0.2.2 or later. The system provides guidance if the module is missing, disabled or unavailable.
 
 ### 2. Choose and extract the PDFs
 
