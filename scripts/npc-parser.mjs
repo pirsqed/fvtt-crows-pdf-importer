@@ -6,6 +6,27 @@ const statsPattern=new RegExp(`(${labels.join('|')}):\\s*`);
 // Values are inserted only into HTML text nodes, never into attributes.
 const esc=text=>escapeHTML(text).replaceAll('&#39;',"'").replaceAll('&quot;','"');
 
+/** Match the system's movement schema while keeping the importer standalone. */
+export function parseNPCSpeeds(speed = '5') {
+  const movement = {base: 0, modes: [], notes: ''};
+  const notes = [];
+  let baseFound = false;
+  for (const part of String(speed).split(/[,;]+/).map(text => text.trim()).filter(Boolean)) {
+    const base = /^(\d+)(?:\s+(.*))?$/.exec(part);
+    const mode = /^([\p{L}][\p{L} -]*?)\s+(\d+)(?:\s+(.*))?$/u.exec(part);
+    if (base && !baseFound) {
+      movement.base = Number(base[1]);
+      baseFound = true;
+      if (base[2]) notes.push(`Base: ${base[2]}`);
+    } else if (mode) {
+      movement.modes.push({name: mode[1], value: Number(mode[2])});
+      if (mode[3]) notes.push(`${mode[1]}: ${mode[3]}`);
+    } else notes.push(part);
+  }
+  movement.notes = notes.join('; ');
+  return movement;
+}
+
 export function parseNPCBlock(rows,page){
   if(!rows.length)return null;
   const stats={},attacks=[],features=[];let index=1,lastLabel;
@@ -15,7 +36,7 @@ export function parseNPCBlock(rows,page){
     const statText=row.text.replace(/Expertises\s*(\([^)]*\)):/,'Expertises: $1');
     const parts=statText.split(statsPattern);
     if(parts.length>1){for(let n=1;n<parts.length-1;n+=2){stats[parts[n]]=norm(parts[n+1]);lastLabel=parts[n];}}
-    else if(['Expertises','Equipment'].includes(lastLabel)&&!row.first_bold)stats[lastLabel]=norm(stats[lastLabel]+' '+row.text);
+    else if(['Speed','Expertises','Equipment'].includes(lastLabel)&&!row.first_bold)stats[lastLabel]=norm(stats[lastLabel]+' '+row.text);
   }
   if(stats.Power===undefined)return null;
   for(const label of ['Size','Power','Type','Stamina','Speed','Agility','Mind','Strength'])if(!stats[label])throw new Error(`${rows[0].text}: missing ${label} stat.`);
@@ -78,7 +99,7 @@ export function npcToActor(block){
   });
   for(const f of block.features)items.push({name:f.title.replace(/^\*+/,''),type:'trait',img:'icons/svg/book.svg',system:{tree:'General',tier:'Monster Feature',cost:0,prerequisites:'',description:f.html}});
   return {name:block.name,type:'monster',img,system:{size,power:Number(block.name.match(/\(Power (\d+)\)/)?.[1]??num(stats.Power,1)),type:creatureType,
-    stamina:{value:num(stats.Stamina,10),max:num(stats.Stamina,10)},speed:stats.Speed??'5',characteristics:{agility:num(stats.Agility),mind:num(stats.Mind),strength:num(stats.Strength)},
+    stamina:{value:num(stats.Stamina,10),max:num(stats.Stamina,10)},speed:stats.Speed??'5',movement:parseNPCSpeeds(stats.Speed),characteristics:{agility:num(stats.Agility),mind:num(stats.Mind),strength:num(stats.Strength)},
     slots:num(stats.Slots),coins:0,tempAD:num(stats.AD),description:(meta.length?`<ul class='monster-meta'>${meta.join('')}</ul>`:'')+(block.features.length?'<p><em>Features are listed as traits on this sheet.</em></p>':'')},items,
     prototypeToken:{name:block.name,displayName:20,displayBars:20,disposition:['Animal','Human'].includes(creatureType)?0:-1,width:tokenSize,height:tokenSize,texture:{src:img},bar1:{attribute:'stamina'},actorLink:false},
     flags:{'fvtt-crows-pdf-importer':{schemaVersion:1,source:{set:'ref',page:block.page,name:block.name},stats:structuredClone(stats)}}};

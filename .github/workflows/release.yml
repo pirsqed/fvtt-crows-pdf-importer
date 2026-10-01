@@ -1,37 +1,73 @@
 name: Release
+
+# Both entry points package an existing version tag and create a reviewable draft.
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing version tag to package
+        description: Existing version tag to package (vX.Y.Z)
         required: true
+        type: string
+      prerelease:
+        description: Mark the draft as a prerelease
+        type: boolean
+        default: false
+
 permissions:
   contents: write
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fvtt-crows-pdf-importer
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+          path: fvtt-crows-pdf-importer
+      # Pin the companion adapter used by import-content integration tests.
+      - uses: actions/checkout@v4
+        with:
+          repository: pirsqed/fvtt-crows-system
+          ref: 15f2ff138d39264a033f49037507cd9861388e0b
+          path: fvtt-crows-system
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Fixture-free tests
-        run: node --test tests/module.test.mjs tests/card-parser.test.mjs tests/item-mapper.test.mjs tests/packet.test.mjs tests/npc-parser.test.mjs tests/characters-parser.test.mjs tests/ref-tables.test.mjs
-      - name: Packaging tests
-        run: python -m unittest discover -s tests -p test_release.py
+      - name: Verify existing tag
+        run: |
+          git show-ref --verify "refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+      - name: Fixture-free regression tests
+        run: npm test
+      - name: Release tooling tests
+        run: |
+          python -m unittest discover -s tests -p test_release.py
+          python -m unittest discover -s tests -p test_prepare_release.py
       - name: Build release assets
-        env:
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-        run: python tools/build_release.py --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG"
+        run: |
+          python tools/build_release.py --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG"
+      - name: Validate assets and prepare notes and checksums
+        run: python tools/prepare_release.py --output dist --manifest module.json --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG"
       - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-        run: gh release create "$RELEASE_TAG" dist/fvtt-crows-pdf-importer.zip dist/module.json dist/SHA256SUMS.txt --verify-tag --draft --title "$RELEASE_TAG" --notes-file CHANGELOG.md
+          PRERELEASE: ${{ inputs.prerelease || false }}
+        run: |
+          flags=()
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+          gh release create "$RELEASE_TAG" dist/fvtt-crows-pdf-importer.zip dist/module.json dist/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "$RELEASE_TAG" --notes-file dist/RELEASE-NOTES.md "${flags[@]}"

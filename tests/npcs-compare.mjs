@@ -15,6 +15,9 @@ const actors=result.npcRecords.map(npcToActor);
 const actorDifferences=[];let improvedNotes=0;
 actors.forEach((actor,index)=>{
   const actual=structuredClone(actor),oracle=structuredClone(expected.actors[index]);delete actual.flags;
+  // The historical oracle predates structured movement; its raw speed still
+  // matches exactly. Structured speeds are covered by npc-parser.test.mjs.
+  delete actual.system.movement;
   actual.items.forEach((item,i)=>{if(item.type==='attack'&&item.system.notes!==oracle.items[i]?.system.notes){
     const linked=result.npcRecords[index].features.filter(f=>item.system.notes.includes(f.html.replace(/^<p>|<\/p>$/g,'')));
     if(linked.length>1&&item.system.notes.endsWith(oracle.items[i].system.notes)){improvedNotes++;oracle.items[i].system.notes=item.system.notes;}

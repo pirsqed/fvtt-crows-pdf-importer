@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2 — prepared
+
+Requires Foundry 14. Use with Crows system v0.2.3 for structured NPC speed editing. The minimum system version remains v0.2.2 for existing import functionality.
+
+- Parse NPC speeds into base speed and named movement types for the updated Crows NPC speed editor. Preserve special movement annotations as notes and retain the original speed text.
+- **Existing NPC speeds:** Re-import the Ref book to update imported compendium entries, reviewing any entries preserved because of local edits. Actors already copied into a world or scene are not updated by re-importing; use the pencil beside Speed on each NPC sheet to review and save their speeds manually. Use this importer update with the Crows system update that includes the NPC speed editor.
+
 ## 0.1.1 — prepared
 
 - Extract all 21 numbered Ref book tables into a selectable Ref Tables RollTable compendium (394 results). Bad Weather includes an odd/even reminder and Ref book page references.

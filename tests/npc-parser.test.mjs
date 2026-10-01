@@ -1,9 +1,32 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseNPCBlock,npcToActor,validateActorPreview} from '../scripts/npc-parser.mjs';
+import {parseNPCBlock,npcToActor,validateActorPreview,parseNPCSpeeds} from '../scripts/npc-parser.mjs';
 import {discoverPacket,extractPacket} from '../scripts/packet.mjs';
 const row=(text,bold=false)=>({text,first_bold:bold,all_bold:bold});
 const rows=()=>[row('Test Guard (Power 4)',true),row('Size: Medium Power: 3 Type: Human'),row('Stamina: 12 Speed: 5 Slots: 10'),row('Agility: 2 Mind: 0 Strength: 1'),row('Expertises: Athletics'),row('Equipment: Shield,'),row('spear'),row('Attack Range 12-16 17+',true),row('Spear (+3)* Melee 2 3 dam 6 dam'),row('*First feature',true),row('First effect.'),row('*Second feature',true),row('Second effect.')];
+
+test('movement separates base and named speeds while preserving annotations',()=>{
+  assert.deepEqual(parseNPCSpeeds('6, climb 6 (U), swim 4; fly 8, burrow 2'), {
+    base:6, modes:[{name:'climb',value:6},{name:'swim',value:4},{name:'fly',value:8},{name:'burrow',value:2}], notes:'climb: (U)'
+  });
+  assert.deepEqual(parseNPCSpeeds('0, fly 8'), {base:0,modes:[{name:'fly',value:8}],notes:''});
+  assert.deepEqual(parseNPCSpeeds('fly 8'), {base:0,modes:[{name:'fly',value:8}],notes:''});
+  assert.deepEqual(parseNPCSpeeds('5'), {base:5,modes:[],notes:''});
+  assert.deepEqual(parseNPCSpeeds('5, shadow step 3, special movement in mist'), {
+    base:5,modes:[{name:'shadow step',value:3}],notes:'special movement in mist'
+  });
+  assert.deepEqual(parseNPCSpeeds('Special movement only'), {base:0,modes:[],notes:'Special movement only'});
+});
+
+test('wrapped printed speeds reach the Actor as structured movement and retain source text',()=>{
+  const input=rows();
+  input.splice(2,1,row('Stamina: 12 Speed: 6,',true),row('climb 6 (U), swim 4'),row('Slots: 10',true));
+  const actor=npcToActor(parseNPCBlock(input,23));
+  assert.deepEqual(actor.system.movement, {base:6,modes:[{name:'climb',value:6},{name:'swim',value:4}],notes:'climb: (U)'});
+  assert.equal(actor.system.speed,'6, climb 6 (U), swim 4');
+  assert.equal(actor.flags['fvtt-crows-pdf-importer'].stats.Speed,actor.system.speed);
+  assert.equal(actor.system.slots,10);
+});
 
 test('NPC stats, wrapped equipment and attack notes become a Human combat Actor',()=>{
   const block=parseNPCBlock(rows(),23),actor=npcToActor(block);

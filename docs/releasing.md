@@ -1,64 +1,38 @@
-# Releasing the module
+# GitHub release process
 
-## Current preparation
+Push an existing `vX.Y.Z` version tag to run the Release workflow, or select **Actions → Release → Run workflow** and enter an existing tag. Manual runs also offer an explicit prerelease checkbox; tag pushes create ordinary release drafts.
 
-Version 0.1.1 is prepared locally, paired with Crows system v0.2.2 or later.
-The system must provide RollTable imports as well as the import adapter, creator
-integration, and force-overwrite support. Travel-branch work is deferred.
-Nothing has been published by this preparation.
+Both repositories use Node 22 and Python 3.12. The workflow verifies the tag checkout, runs fixture-free regression and release-tooling tests, builds runtime assets, and validates the tag/version, package version when present, release download URL, embedded/external manifests, ZIP integrity, and declared runtime files.
 
-## Build and check
+Release notes come from exactly the matching `## X.Y.Z` section of `CHANGELOG.md`, ending at the next level-two heading. Nested headings are preserved. Missing, empty, or duplicate sections fail the build. The release heading omits the changelog's “prepared” suffix. GitHub-generated PR summaries are not used.
 
-Run from the module repository root:
+The workflow creates a draft titled `vX.Y.Z` with the ZIP, manifest, and `SHA256SUMS.txt`. Review its notes and assets on GitHub, then publish. For paired system/importer updates, prepare both drafts and publish the companion importer before the system when the system notes require that importer.
 
-```sh
-npm test
-python -m unittest discover -s tests -p test_release.py
-python tools/build_release.py --repository pirsqed/fvtt-crows-pdf-importer --tag v0.1.1
+The existing draft or published release is never automatically overwritten: `gh release create` fails if that release already exists. Inspect it before deciding whether to delete an incomplete draft and rerun. Published versions should receive a new version/tag rather than replacement assets.
+
+Local preparation uses the normal release builder followed by:
+
+```text
+python tools/prepare_release.py --output dist --manifest module.json --repository pirsqed/fvtt-crows-pdf-importer --tag vX.Y.Z
 ```
 
-The repository argument supplies installation URLs without changing the source
-manifest. Omit it for an offline ZIP with no new installation URLs. The builder
-checks version/tag agreement, referenced runtime files, archive integrity and
-reproducibility. It includes only runtime `.mjs` files, Markdown documentation,
-the manifest and license. PDFs, generated content, tests, tools, dependencies and
-local reports are excluded. Python is a maintainer build tool only.
+Use `system.json` for the system or `module.json` for the importer. The system builder needs `--output dist/fvtt-crows-system.zip`, then copy `system.json` into `dist`; the importer builder writes into `dist` and needs `--repository pirsqed/fvtt-crows-pdf-importer --tag vX.Y.Z`.
 
-Outputs in ignored `dist/`:
 
-- `fvtt-crows-pdf-importer.zip`: installable module with `module.json` at its root.
-- `module.json`: the same manifest embedded in the ZIP.
-- `SHA256SUMS.txt`: checksums for both assets.
+## Companion tests and private fixtures
 
-Run `npm run test:tables`, `npm run test:items`, `npm run test:characters`, `npm run test:import` and
-`npm run test:browser` locally with the private fixtures described in
-[development.md](development.md). The hosted workflow runs only fixture-free
-tests that do not require the sibling system checkout or a Foundry installation.
+The hosted workflow checks out a pinned system commit beside the importer for its import-content integration tests. Update that pin when the tested adapter changes; do not follow a moving branch for release checks. The current pin contains the same adapter as the v0.2.3 candidate.
 
-## Draft and publish
+Private-packet comparisons and browser checks remain local. Use `npm run test:tables`, `npm run test:items`, `npm run test:characters`, `npm run test:import`, and `npm run test:browser` with the fixtures described in [development.md](development.md).
 
-1. Configure the intended GitHub repository and commit the reviewed source.
-2. Update `module.json`, `package.json` and `CHANGELOG.md` together for later versions.
-3. Push a matching `vX.Y.Z` tag, or run the Release workflow manually with that tag.
-4. The workflow builds the package and creates a **draft** GitHub release with
-   the ZIP, manifest and checksums. Review its notes and requirements.
-5. Check installation from the ZIP in a clean world with the compatible system:
-   enable the module, import a small selection, publish a full creator library,
-   create a Crow, repeat the import, and check force overwrite on test entries.
-6. Publish the draft only when the compatible system is available. The installation
-   URL is `https://github.com/pirsqed/fvtt-crows-pdf-importer/releases/latest/download/module.json`.
+## Installation and stable updates
 
-Draft assets are not public installation links. The downloadable manifest points
-at a version-specific ZIP, so a later tag cannot change that release's payload.
-
-## Stable manifest link
-
-The user-facing installation URL is:
+The public installation and update URL is:
 
 ```text
 https://github.com/pirsqed/fvtt-crows-pdf-importer/releases/latest/download/module.json
 ```
 
-Keep the asset named `module.json` on every stable release. Publish the Actions-generated draft as a stable release and ensure the intended release is marked Latest. Drafts and prereleases are not served by this stable-release link. Until a stable release with that asset exists, the link will not work.
+Keep the asset named `module.json`, publish the intended stable draft, and ensure it is marked Latest. Draft assets are not public installation links; prereleases do not replace the stable update link. For a prerelease, use that release's versioned manifest asset.
 
-The generated manifest uses this stable URL for update checks, while its `download` points to the ZIP for its exact version. Do not substitute the raw source manifest from `main`: the build adds the installation URLs to the release asset. For a prerelease or a specific version, use that release's versioned `module.json` asset URL instead.
+The builder adds installation URLs to the released manifest. Use that asset rather than the raw source manifest from main. Its download URL points to the exact version's ZIP.
