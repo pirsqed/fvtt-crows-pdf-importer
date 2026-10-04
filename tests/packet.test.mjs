@@ -11,7 +11,7 @@ test('Ref packet keeps tables and correction notes available for review',async()
 
 test('folder discovery includes nested PDFs, excludes extra copies, and detects all three sets',()=>{
   const entries=discoverPacket([file('02 Crows Invetory Cards.pdf','Packet/Inventory/02 Crows Invetory Cards.pdf'),file('Cards by Profession.PDF'),file('Cards for POIs and Dungeons.pdf'),file('Cards Annotated.pdf'),file('Characters Book.pdf'),file('picture.webp'),file('Cards.pdf','Packet/__MACOSX/Cards.pdf')]);
-  assert.equal(entries.length,6);assert.deepEqual(reviewPacket(entries).missing,['ref']);
+  assert.equal(entries.length,6);assert.deepEqual(reviewPacket(entries).missing,['ref','rules']);
   assert.equal(reviewPacket(entries).selected.length,4);assert.equal(reviewPacket(entries).errors.length,0);
 });
 
@@ -19,7 +19,7 @@ test('duplicates need an explicit choice; renamed PDFs and partial packets are s
   const entries=discoverPacket([file('Cards.pdf'),file('Cards copy.pdf'),file('renamed.pdf')]);
   assert.equal(reviewPacket(entries).errors.length,1);
   entries[1].source='';entries[2].source='profession';
-  assert.deepEqual(reviewPacket(entries).missing,['poi','ref','characters']);assert.deepEqual(reviewPacket(entries).errors,[]);
+  assert.deepEqual(reviewPacket(entries).missing,['poi','ref','rules','characters']);assert.deepEqual(reviewPacket(entries).errors,[]);
 });
 
 test('batch processing is sequential, records file errors, and preserves successful file results',async()=>{
@@ -51,4 +51,9 @@ test('abort terminates a worker even while the browser is reading a file',async(
     controller.abort();await assert.rejects(promise,{name:'AbortError'});
     release(new ArrayBuffer(0));await Promise.resolve();assert.equal(terminated,1);assert.equal(posted,0);
   }finally{delete globalThis.Worker;}
+});
+
+test('the Rules Book is detected separately from the Ref book',()=>{
+  const entries=discoverPacket([file('01 Crows The Rules Book for Playtest 2.pdf'),file('03 Crows The Ref Book for Playtest 2.pdf')]);
+  assert.deepEqual(entries.map(entry=>entry.source),['rules','ref']);
 });

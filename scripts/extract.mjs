@@ -1,7 +1,7 @@
 // Uses the Foundry-installed PDF.js supplied by the caller; no MuPDF dependency.
 import {cards,traits} from './layout-parser.mjs';
 import {npcs} from './npc-parser.mjs';
-import {parseRefTables,REF_TABLE_PAGES} from './ref-tables.mjs';
+import {parseRefTables,REF_TABLE_PAGES,parseRulesTables,RULES_TABLE_PAGES} from './ref-tables.mjs';
 import {characterLines,parseCharacterBook,traitItems} from './characters-parser.mjs';
 const bounds=ps=>[Math.min(...ps.map(p=>p[0])),Math.min(...ps.map(p=>p[1])),Math.max(...ps.map(p=>p[0])),Math.max(...ps.map(p=>p[1]))];
 const point=([x,y],m)=>[m[0]*x+m[2]*y+m[4],m[1]*x+m[3]*y+m[5]];
@@ -92,7 +92,7 @@ export async function readLayout(page,pdfjs){
 export async function extractPage(bytes,pageNumber,kind,{pdfjs,baseURL,worker,source='unknown',onProgress=()=>{}}={}){
   if(!pdfjs)throw new Error('PDF.js must be supplied by the host.');
   if(pdfjs.version!=='4.0.379')throw new Error(`This prototype was validated with PDF.js 4.0.379; found ${pdfjs.version}. Recheck the font/path adapter before using this version.`);
-  if(!['cards','traits','npcs','ref','characters'].includes(kind))throw new Error('Choose cards, traits, NPCs, Ref or Characters book.');
+  if(!['cards','traits','npcs','ref','characters','rules'].includes(kind))throw new Error('Choose cards, traits, NPCs, Ref, Characters or Rules book.');
   const task=pdfjs.getDocument({data:bytes.slice(),worker,fontExtraProperties:true,disableFontFace:true,isEvalSupported:false,useWorkerFetch:!!baseURL && /^https?:/.test(baseURL),
     ...(baseURL?{cMapUrl:new URL('web/cmaps/',baseURL).href,cMapPacked:true,standardFontDataUrl:new URL('web/standard_fonts/',baseURL).href}:{} )});
   // No password prompt in this probe: reject rather than wait indefinitely.
@@ -101,6 +101,19 @@ export async function extractPage(bytes,pageNumber,kind,{pdfjs,baseURL,worker,so
   task.onPassword=()=>rejectPassword(new Error('Password-protected PDFs are outside this prototype.'));
   try{
     const doc=await Promise.race([task.promise,passwordFailure]);
+    if(kind==='rules'){
+      const pages=[],layouts=[];onProgress({page:0,total:doc.numPages});
+      for(let number=1;number<=doc.numPages;number++){
+        if(RULES_TABLE_PAGES.has(number)){
+          const page=await doc.getPage(number);
+          try{layouts.push({page:number,...await readLayout(page,pdfjs)});}
+          catch(error){throw new Error(`Page ${number}: ${error.message}`);}
+          finally{page.cleanup();}
+        }
+        pages.push({page:number});onProgress({page:number,total:doc.numPages});
+      }
+      return {kind,source,pages,...parseRulesTables(layouts)};
+    }
     if(kind==='characters'){
       const pages=[],bookPages=[],documents=[];let connectionSection=false;
       onProgress({page:0,total:doc.numPages});

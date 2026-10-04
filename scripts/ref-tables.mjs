@@ -108,3 +108,38 @@ export function parseRefTables(layouts){
   weather.description='Use the Bad Weather table for the current climate or season in the Ref Book for Playtest 2, page 1. Roll any die: odd selects the first listed event; even selects the second. Weather lasts 24 hours; see pages 1–2 for effects.';
   return {tables,tableWarnings:warnings};
 }
+
+// Layout map for the user-supplied Playtest 2 Rules Book. No result text is bundled.
+export const RULES_TABLES=[
+  ['Miasma Effects',[segment(28,0,49,535,5),segment(28,1,36,350,2)]]
+];
+export const RULES_TABLE_PAGES=new Set(RULES_TABLES.flatMap(([,segments])=>segments.map(s=>s.page)));
+const FULL_CORRUPTION=13;
+
+/** Miasma results keep both printed effects: the first as the result name, the second as its description. */
+export function parseRulesTables(layouts){
+  const byPage=new Map(layouts.map(l=>[l.page,l])),tables=[];
+  for(const [name,segments] of RULES_TABLES){
+    const rows=[];
+    for(const part of segments){
+      const layout=byPage.get(part.page);if(!layout)throw new Error(`${name}: missing page ${part.page}.`);
+      const [header,...cells]=readTableCells(layout,part);
+      if(header.length!==3||!/^d10\s*\+\s*Cruelty$/i.test(header[0]))throw new Error(`${name}: missing "d10 + Cruelty" header on page ${part.page}. Check the Rules Book version.`);
+      for(const [roll,first,second] of cells){
+        if(!first||!second)throw new Error(`${name}: empty effect cell on page ${part.page}.`);
+        rows.push({range:rangeOf(roll),first,second});
+      }
+    }
+    for(let value=1;value<=FULL_CORRUPTION;value++){
+      const count=rows.filter(r=>r.range[0]<=value&&r.range[1]>=value).length;
+      if(count!==1)throw new Error(`${name}: result ${value} has ${count?'overlapping entries':'no entry'}.`);
+    }
+    const pages=[...new Set(segments.map(s=>s.page))];
+    tables.push({name,img:'icons/svg/d20-grey.svg',formula:'1d10',replacement:true,displayRoll:true,
+      description:`<p>Rules Book for Playtest 2, page ${pages.join(', ')}. Roll 1d10 + cruelty level. Each result's name is the first effect; its description is the second effect.</p>`,
+      results:rows.map(({range,first,second})=>({type:'text',name:first,description:escape(second),range,
+        weight:range[1]===Number.MAX_SAFE_INTEGER?1:range[1]-range[0]+1,drawn:false})),
+      flags:{[scope]:{source:{set:'rules',page:pages[0],pages},miasma:true}}});
+  }
+  return {tables,tableWarnings:[]};
+}

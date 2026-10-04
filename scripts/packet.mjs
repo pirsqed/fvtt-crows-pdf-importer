@@ -1,5 +1,5 @@
 import {finalizeBackgrounds} from './characters-parser.mjs';
-export const CARD_SETS={core:'Core inventory',profession:'Profession inventory',poi:'POIs and dungeons',ref:'Ref book — creatures and rollable tables',characters:'Characters — backgrounds, connections and traits'};
+export const CARD_SETS={core:'Core inventory',profession:'Profession inventory',poi:'POIs and dungeons',ref:'Ref book — creatures and rollable tables',rules:'Rules Book — Miasma Effects table',characters:'Characters — backgrounds, connections and traits'};
 export const filePath=file=>file.webkitRelativePath||file.name;
 
 /** Filename discovery only. File contents are read after the user starts extraction. */
@@ -10,6 +10,7 @@ export function discoverPacket(files){
     if(path.split(/[\\/]/).some(part=>part.startsWith('.')||part==='__MACOSX'))reason='Hidden or archive metadata copy; skipped.';
     else if(/annotated/.test(name))reason='Annotated copy; skipped to avoid duplicate cards.';
     else if(/ref(?:eree)?[ _-]+book/.test(name)){source='ref';reason='Ref book detected; extracts creature stat blocks and rollable tables.';}
+    else if(/rules?[ _-]+book/.test(name)){source='rules';reason='Rules Book detected; extracts the Miasma Effects table.';}
     else if(/characters/.test(name)){source='characters';reason='Characters book detected; extracts backgrounds, NPC connections and trait trees.';}
     else if(/cards/.test(name) && !/sheet/.test(name)){
       source=/profession/.test(name)?'profession':/poi|dungeon/.test(name)?'poi':'core';reason='Detected from filename.';
@@ -49,7 +50,7 @@ export function extractPacketFile(entry,{signal,onProgress=()=>{},timeout=30000}
     };
     entry.file.arrayBuffer().then(bytes=>{
       if(finished)return;
-      worker.postMessage({bytes,page:null,kind:entry.source==='ref'?'ref':entry.source==='characters'?'characters':'cards',source:entry.source,baseURL:new URL('../../../scripts/pdfjs/',import.meta.url).href},[bytes]);
+      worker.postMessage({bytes,page:null,kind:['ref','characters','rules'].includes(entry.source)?entry.source:'cards',source:entry.source,baseURL:new URL('../../../scripts/pdfjs/',import.meta.url).href},[bytes]);
     }).catch(error=>finish(error));
   });
 }
@@ -66,7 +67,7 @@ export async function extractPacket(entries,{signal,onProgress=()=>{},extractFil
     try{
       const result=await extractFile(entry,{signal,onProgress:progress});
       if(signal?.aborted)throw cancelled();
-      report.files.push({path:entry.path,source:entry.source,pages:result.pages,cards:result.parsedCards?.length??0,npcs:result.npcRecords?.length??0,traits:result.documents?.filter(item=>item.type==='trait').length??0});
+      report.files.push({path:entry.path,source:entry.source,pages:result.pages,cards:result.parsedCards?.length??0,npcs:result.npcRecords?.length??0,traits:result.documents?.filter(item=>item.type==='trait').length??0,tables:result.tables?.length??0});
       report.documents.push(...result.documents??[]);report.parsedCards.push(...result.parsedCards??[]);
       report.actors.push(...result.actors??[]);report.npcRecords.push(...result.npcRecords??[]);
       report.tables.push(...result.tables??[]);report.tableWarnings.push(...result.tableWarnings??[]);

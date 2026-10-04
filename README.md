@@ -24,13 +24,15 @@ For manual installation, extract the module release ZIP with `module.json` at th
 
 ### 2. Choose and extract the PDFs
 
-Extract your playtest ZIP on the computer running your browser. Keep the original filenames and subfolders. For a complete library, include the **Characters book**, **Ref book**, **core Inventory Cards**, **Profession cards**, and **POI/Dungeon cards**.
+Extract your playtest ZIP on the computer running your browser. Keep the original filenames and subfolders. For a complete library, include the **Characters book**, **Ref book**, **Rules Book**, **core Inventory Cards**, **Profession cards**, and **POI/Dungeon cards**.
 
 Choose **Packet folder** to include subfolders, or **Individual PDFs** to choose the books directly. Check each file's assigned content type; renamed files can be assigned manually. Skip duplicate copies and unrelated books. Click **Extract selected PDFs** and wait for the results, then **Choose entries & review →**.
 
 Extraction saves nothing to your world. **Extraction results** contains the per-book details; **Developer tools & extraction data** is available when troubleshooting.
 
 The Playtest 2 Ref book supplies **21 RollTables with 394 results** to **Crows Ref Tables**: encounter, reaction, merchant and treasure tables. The Bad Weather result reminds the Ref to roll any die, use odd/even to select the first/second event for the current climate or season, and consult Ref book pages 1–2. Multi-page descriptions and printed probabilities are retained. Results are text; references to another table or creature do not automatically roll or create tokens. Resistance-roll tiers, attack charts and the Merchant NPC lookup are not random tables.
+
+The Playtest 2 Rules Book supplies the **Miasma Effects** table (page 28) to the same compendium. Each result's name is its first effect and its description is the second effect. The Crows system reads this table when a Crow rolls on the Miasma Effects table; without it, the roll card shows only the total.
 
 Approved Playtest 2 corrections: Minor Interesting Things uses 46 for gems, 57 for steel crossbow bolts, and 58–59 for the fine torch. The undead encounter table is named **Undead Dungeon Encounters** and uses **d10**. Source pages and corrections appear in table descriptions. Major Interesting Things retains its **101+** Greed Exchange result for modified rolls; the normal formula remains d100. Do not normalize this table, as that would change its printed ranges.
 
