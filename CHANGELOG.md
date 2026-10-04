@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Import NPC tokens at their rules sizes: Large 2×2, Huge 3×3, Holy Shit! 4×4 (previously 1×1, 2×2 and 3×3). **Existing compendium NPCs:** re-import the Ref book with **Force overwrite** to update their prototype tokens, or adjust tokens already placed in scenes by hand.
+
 ## 0.1.2 — prepared
 
 Requires Foundry 14. Use with Crows system v0.2.3 for structured NPC speed editing. The minimum system version remains v0.2.2 for existing import functionality.

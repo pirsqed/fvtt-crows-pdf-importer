@@ -87,7 +87,8 @@ export function npcToActor(block){
   const stats=block.stats,num=(value,fallback=0)=>Number(String(value??'').match(/-?\d+/)?.[0]??fallback);
   const creatureType=stats.Type??'Monster',size=stats.Size??'Medium';
   const img=creatureType==='Animal'?(animalIcons[block.name]??'icons/svg/mystery-man.svg'):creatureType==='Unique'?'icons/creatures/magical/humanoid-silhouette-glowing-pink.webp':'icons/svg/mystery-man.svg';
-  const tokenSize=({'Huge':2,'Holy Shit':3,'Holy Shit!':3})[size]??1;
+  // Rules Book Creature Sizes table: Tiny-Medium 1, Large 2x2, Huge 3x3, Holy Shit! 4x4.
+  const tokenSize=({'Large':2,'Huge':3,'Holy Shit':4,'Holy Shit!':4})[size.trim()]??1;
   const meta=['Reactions','AD','Expertises','Equipment'].filter(key=>stats[key]).map(key=>`<li><b>${key}:</b> ${esc(stats[key])}</li>`);
   const items=block.attacks.map(attack=>{
     const stars=Math.max(...[attack.name,attack.t2,attack.t3].map(value=>(value.match(/\*/g)??[]).length));

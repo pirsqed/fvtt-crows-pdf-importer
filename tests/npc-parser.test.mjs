@@ -45,7 +45,7 @@ test('NPC parser skips prose and rejects incomplete stat blocks',()=>{
 });
 
 test('animal, blood, undead and unique Actors retain type, icon, size and disposition',()=>{
-  for(const [type,size,width,disposition] of [['Animal','Huge',2,0],['Blood','Large',1,-1],['Undead','Holy Shit!',3,-1],['Unique','Medium',1,-1]]){
+  for(const [type,size,width,disposition] of [['Animal','Huge',3,0],['Blood','Large',2,-1],['Undead','Holy Shit!',4,-1],['Unique','Medium',1,-1],['Animal','Small',1,0]]){
     const input=rows();input[0]=row(type==='Animal'?'Bear':type==='Undead'?'Undead Creature A':'Test Creature',true);
     input[1]=row(`Size: ${size} Power: 3 Type: ${type}`);
     input[2]=row('Stamina: 12 Speed: 5'); // Creatures can omit inventory slots.
