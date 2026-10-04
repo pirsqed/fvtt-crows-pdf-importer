@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {discoverPacket,reviewPacket,extractPacket,extractPacketFile} from '../scripts/packet.mjs';
+import {canReviewPacket} from '../scripts/packet-preview.mjs';
 const file=(name,path=name)=>({name,webkitRelativePath:path,arrayBuffer(){throw new Error('Discovery must not read files.');}});
 
 test('Ref packet keeps tables and correction notes available for review',async()=>{
@@ -31,7 +32,19 @@ test('batch processing is sequential, records file errors, and preserves success
     onProgress({page:2,total:2});return {pages:[{page:1,cards:0},{page:2,cards:1}],parsedCards:[{source:entry.source}],documents:[{name:entry.source}]};
   }});
   assert.equal(report.files.length,2);assert.equal(report.documents.length,2);assert.equal(report.errors[0].source,'profession');
+  assert.equal(canReviewPacket(report,true),true);
   assert.ok(progress.some(p=>p.total===2));assert.equal(progress.at(-1).files,3);
+});
+
+test('partial-packet review permits unresolved kits but still blocks invalid documents, empty results, and players',()=>{
+  const report={documents:[{name:'Trait'}],actors:[],tables:[],backgroundIssues:['Missing kit'],validation:{status:'passed'}};
+  assert.equal(canReviewPacket(report,true),true);
+  assert.equal(canReviewPacket(report,false),false);
+  assert.equal(canReviewPacket({...report,documents:[]},true),false);
+  for(const field of ['validation','actorValidation','tableValidation'])
+    assert.equal(canReviewPacket({...report,[field]:{status:'failed'}},true),false);
+  assert.equal(canReviewPacket({...report,documents:[],tables:[{name:'Miasma'}]},true),true);
+  assert.equal(canReviewPacket({...report,documents:[],actors:[{name:'Creature'}]},true),true);
 });
 
 test('cancellation stops the queue without returning a partial success',async()=>{

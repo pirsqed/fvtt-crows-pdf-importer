@@ -5,6 +5,12 @@ import {openPreview} from './preview.mjs';
 import {validateActorPreview} from './npc-parser.mjs';
 import {openImportReview} from './import-review.mjs';
 
+/** Extraction errors belong to failed PDFs; successful documents still receive validation and review. */
+export function canReviewPacket(report,isGM){
+  return Boolean(isGM&&(report.documents.length||report.actors.length||report.tables?.length)
+    &&![report.validation,report.actorValidation,report.tableValidation].some(result=>result?.status==='failed'));
+}
+
 export function openPacketPreview(){
   const dialog=document.createElement('dialog');
   styleImport(dialog);
@@ -170,7 +176,8 @@ export function openPacketPreview(){
       if(report.actors.length){const summary=document.createElement('p');summary.textContent='Creature types: '+[...counts].map(([type,count])=>`${type}: ${count}`).join(', ');$('file-results').append(summary);const list=document.createElement('ul');for(const actor of report.actors){const row=document.createElement('li');row.textContent=`${actor.name} — ${actor.system.type}, Power ${actor.system.power}, Stamina ${actor.system.stamina.max}, ${actor.items.filter(item=>item.type==='attack').length} attacks, ${actor.items.filter(item=>item.type==='trait').length} traits`;list.append(row);}$('file-results').append(list);}
       for(const error of report.errors){const p=document.createElement('p');p.textContent=`Failed — ${error.path}: ${error.message}`;$('file-results').append(p);}
       $('packet-result').textContent=JSON.stringify(report,null,2);
-      lastReport=report;$('open-import').disabled=Boolean(report.errors.length||report.backgroundIssues.length||report.validation.status==='failed'||report.actorValidation?.status==='failed'||report.tableValidation?.status==='failed'||!globalThis.game?.user?.isGM);
+      lastReport=report;$('open-import').disabled=!canReviewPacket(report,globalThis.game?.user?.isGM);
+      if((report.errors.length||report.backgroundIssues.length)&&!$('open-import').disabled)$('packet-status').textContent+=' You can review successful entries. Character-creation publishing is unavailable until these issues are resolved.';
     }catch(error){if(!closed)$('packet-status').textContent=error.name==='AbortError'?'Cancelled. No results kept; choose Extract to retry.':error.message;}
     finally{if(controller===current)controller=null;if(!closed){$('progress').hidden=true;busy(false);}}
   };

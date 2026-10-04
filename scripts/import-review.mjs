@@ -30,6 +30,7 @@ export function openImportReview(report){
             <input type="checkbox" data-id="publish-creator" checked> Update character-creation content
           </label>
           <p style="margin:6px 0 0 28px;font-size:12.5px;color:#94a3b8">Publishes backgrounds, NPC connections, and starting kits. Required equipment, traits, and pets must be selected or already available in the world.</p>
+          <p data-id="creator-unavailable" class="status-warn"></p>
         </div>
         <div style="background:rgba(15,23,42,0.7);padding:14px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.08)">
           <label style="font-weight:600;display:flex;align-items:center;gap:10px;color:#f1f5f9;cursor:pointer">
@@ -76,6 +77,8 @@ export function openImportReview(report){
   };
   $('publish-creator').disabled=!resolveImport(report).creation;
   $('publish-creator').checked=Boolean(resolveImport(report).creation);
+  $('creator-unavailable').textContent=resolveImport(report).creationIssue;
+  $('creator-unavailable').hidden=!resolveImport(report).creationIssue;
   $('publish-creator').onchange=()=>{invalidate();updateSelection();};
   const renderChoices=()=>{
     const bundle=resolveImport(report,choices);

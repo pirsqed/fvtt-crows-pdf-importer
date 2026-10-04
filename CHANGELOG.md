@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Successful PDF entries can still be reviewed and imported when another PDF fails or starting kits are unresolved. Character-creation publishing is disabled with an explanation until those issues are resolved; existing creator content is preserved and document validation remains required.
+
 - Detect the Rules Book and extract its Miasma Effects table into Crows Ref Tables. The Crows system uses it for Miasma effect rolls instead of bundling the table text.
 - Import NPC tokens at their rules sizes: Large 2×2, Huge 3×3, Holy Shit! 4×4 (previously 1×1, 2×2 and 3×3). **Existing compendium NPCs:** re-import the Ref book with **Force overwrite** to update their prototype tokens, or adjust tokens already placed in scenes by hand.
 

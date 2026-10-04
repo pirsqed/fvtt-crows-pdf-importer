@@ -37,8 +37,11 @@ export function resolveImport(report,choices={}){
     if(selected)packs.find(pack=>pack.config===group.pack).data.push(clone(selected));
   }
   const unresolved=conflicts.filter(c=>c.choice!=='skip'&&(!Number.isInteger(c.choice)||c.choice<0||c.choice>=c.candidates.length));
+  const creationIssue=report.errors?.length?'Character-creation publishing is unavailable until failed PDFs are resolved. You can still import successful entries.'
+    :report.backgroundIssues?.length?'Character-creation publishing is unavailable until starting kits are resolved. You can still import traits and other entries.'
+    :!report.backgrounds?.length||!report.connections?.length?'Extract the Characters Book and resolve its starting kits to publish character-creation content.':'';
   return {packs:packs.filter(p=>p.data.length),conflicts,unresolved,repeated,professionCopies,
-    creation:report.backgrounds?.length&&report.connections?.length?{backgrounds:clone(report.backgrounds),connections:clone(report.connections)}:null};
+    creationIssue,creation:!creationIssue?{backgrounds:clone(report.backgrounds),connections:clone(report.connections)}:null};
 }
 
 function requireGM(){

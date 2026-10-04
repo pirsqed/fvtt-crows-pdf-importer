@@ -7,6 +7,21 @@ const report=documents=>({documents,actors:[],backgrounds:[],connections:[]});
 const prepare=bundle=>prepareImport(bundle,{adapter});
 const execute=(review,options={})=>executeImport(review,{adapter,...options});
 
+test('successful entries import despite failed PDFs or unresolved kits without replacing character content',async()=>{
+  for(const issue of [{errors:[{path:'Ref Book.pdf',message:'Invalid PDF'}]}, {backgroundIssues:['Missing starting knife']}]){
+    const env=setupImport(),previous={schemaVersion:1,content:{saved:'Previous creator content'}};
+    await game.settings.set(SCOPE,'characterContent',previous);env.writes.length=0;
+    const trait={name:'Test trait',type:'trait',system:{tree:'Test'}};
+    const bundle=resolveImport({...report([trait]),backgrounds:[{name:'Incomplete kit'}],connections:[{name:'Connection'}],...issue});
+    assert.equal(bundle.creation,null);assert.match(bundle.creationIssue,/unavailable/);
+    const result=await execute(await prepare(bundle));
+    assert.equal(env.packs.get('world.crows-traits').docs[0].name,'Test trait');
+    assert.equal(result.published,false);
+    assert.deepEqual(env.saved,previous);
+    assert.ok(!env.writes.some(([type])=>type==='setting'));
+  }
+});
+
 test('RollTables import separately, replace stale results and preserve local edits',async()=>{
   const env=setupImport();
   const table={name:'Encounters',formula:'1d2',results:[{type:'text',description:'First',range:[1,1],weight:1},{type:'text',description:'Second',range:[2,2],weight:1}]};
