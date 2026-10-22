@@ -22,7 +22,7 @@ export function openPreview(){
         </label>
         <label style="display:flex;flex-direction:column;gap:6px;font-weight:600">
           <span>Card Set</span>
-          <select data-id="source"><option value="core">Core inventory</option><option value="profession">Profession inventory</option><option value="poi">POIs and dungeons</option></select>
+          <select data-id="source"><option value="core">Core inventory</option><option value="profession">Profession inventory</option><option value="poi">POIs and dungeons</option><option value="cards">Additional inventory / spell cards</option></select>
         </label>
         <label style="display:flex;flex-direction:column;gap:6px;font-weight:600">
           <span>PDF Page Number</span>
@@ -80,7 +80,7 @@ export function openPreview(){
       // Based on the module URL, so a Foundry reverse-proxy prefix is retained.
       const baseURL=new URL('../../../scripts/pdfjs/',import.meta.url).href;
       $('status').textContent='Extracting page…';
-      current.postMessage({bytes,page,kind,source,baseURL},[bytes]);
+      current.postMessage({bytes,page,kind,source,file:file.name,baseURL},[bytes]);
     }catch(error){if(!current || worker===current){stop();$('status').textContent=error.message;$('status').className='status-warn';}}
   };
   document.body.append(dialog);dialog.showModal();return dialog;

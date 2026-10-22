@@ -8,16 +8,27 @@ import {testImportBrowser} from './import-browser.mjs';
 export async function testPacketBrowser(page,modulePath,cards){
   await page.evaluate(async path=>{const {openPacketPreview}=await import(path);openPacketPreview();},modulePath+'scripts/packet-preview.mjs');
   const $=id=>page.locator(`[data-id="${id}"]`);
+  assert.equal(await $('choose-step').isVisible(),true);
+  assert.equal(await $('extract-step').isVisible(),false);
+  assert.equal(await $('extract').isDisabled(),true);
+  assert.equal(await $('open-import').isVisible(),false);
   const packet=dirname(dirname(cards[0].file));
   await $('folder').setInputFiles(packet);
-  assert.match(await $('review').textContent(),/5 PDF\(s\) selected/);
-  assert.equal(await $('assignments').locator('select').evaluateAll(selects=>selects.filter(select=>select.value).length),5);
-  const run=async()=>{await $('extract').click();await page.waitForFunction(()=>document.querySelector('[data-id="abort"]').disabled,{},{timeout:60000});};
+  // Keep the original packet regression independent of optional supplements.
+  for(const select of await $('assignments').locator('select').all())if(await select.inputValue()==='cards')await select.selectOption('');
+  assert.equal(await $('extract').isEnabled(),true);
+  assert.match(await $('review').textContent(),/6 PDF\(s\) selected/);
+  assert.equal(await $('assignments').locator('select').evaluateAll(selects=>selects.filter(select=>select.value).length),6);
+  const run=async()=>{await $('extract').click();assert.equal(await $('choose-step').isVisible(),false);assert.equal(await $('extract-step').isVisible(),true);await page.waitForFunction(()=>document.querySelector('[data-id="abort"]').disabled,{},{timeout:60000});};
   await run();
-  assert.match(await $('packet-status').textContent(),/^Extraction complete: 5 PDFs, 142 pages, 1010 proposed Items, 71 proposed NPC Actors, 21 rollable tables, 36 ready backgrounds, 10 NPC connection benefits/);
+  assert.match(await $('packet-status').textContent(),/^Extraction complete: 6 PDFs, \d+ pages, 1010 proposed Items, 71 proposed NPC Actors, 22 rollable tables, 36 ready backgrounds, 10 NPC connection benefits/);
   const result=JSON.parse(await $('packet-result').textContent());
   assert.deepEqual(result.errors,[]);
-  assert.equal(result.tables.length,21);assert.equal(result.tables.reduce((n,t)=>n+t.results.length,0),394);
+  assert.equal(result.files.filter(file=>file.source!=='rules').reduce((n,file)=>n+file.pages.length,0),142);
+  assert.ok(result.files.find(file=>file.source==='rules').pages.some(page=>page.page===28));
+  assert.equal(result.tables.length,22);
+  assert.equal(result.tables.filter(table=>table.flags['fvtt-crows-pdf-importer'].source.set==='ref').reduce((n,t)=>n+t.results.length,0),394);
+  assert.equal(result.tables.find(table=>table.name==='Miasma Effects').results.length,7);
   for(const source of ['core','profession','poi']){
     assert.deepEqual(compareCards(cards.filter(c=>c.source===source).flatMap(c=>c.expected),result.parsedCards.filter(c=>c.source===source)),[]);
   }
@@ -36,29 +47,34 @@ export async function testPacketBrowser(page,modulePath,cards){
   assert.deepEqual(result.actorCounts,{Animal:32,Human:27,Blood:3,Unique:1,Undead:8});
   const importing=await testImportBrowser(page,modulePath,result);
   // A Characters-only run keeps traits/connections and reports unresolved kits.
+  await $('back-to-pdfs').click();
   await $('files').setInputFiles(characters.file);await run();
   const partial=JSON.parse(await $('packet-result').textContent());
   assert.equal(partial.connections.length,10);assert.equal(partial.documents.length,276);assert.equal(partial.backgrounds.length,0);
   assert.match(await $('packet-status').textContent(),/^Finished with unresolved starting kits/);
   assert.match(partial.backgroundIssues[0],/Include the core inventory/);
   // Same action path after cancellation, with no previous results left visible.
+  await $('back-to-pdfs').click();
   await page.evaluate(()=>{document.querySelector('[data-id="extract"]').click();document.querySelector('[data-id="abort"]').click();});
   await page.waitForFunction(()=>document.querySelector('[data-id="abort"]').disabled);
   assert.match(await $('packet-status').textContent(),/^Cancelled/);assert.equal(await $('packet-result').textContent(),'');
   // Multiple-file fallback and duplicate assignments.
-  await $('files').setInputFiles([{name:'Cards.pdf',mimeType:'application/pdf',buffer:Buffer.from('invalid')},{name:'Cards copy.pdf',mimeType:'application/pdf',buffer:Buffer.from('invalid')}]);
+  await $('back-to-pdfs').click();
+  await $('files').setInputFiles([{name:'Inventory Cards.pdf',mimeType:'application/pdf',buffer:Buffer.from('invalid')},{name:'Inventory Cards copy.pdf',mimeType:'application/pdf',buffer:Buffer.from('invalid')}]);
   assert.equal(await $('extract').isDisabled(),true);assert.match(await $('review').textContent(),/choose one PDF/);
   const poi=cards.find(c=>c.source==='poi');
   await $('files').setInputFiles(poi.file);await run();
   assert.match(await $('packet-status').textContent(),/^Extraction complete: 1 PDFs/);
   // Malformed PDF is reported as a file failure, not a successful empty batch.
+  await $('back-to-pdfs').click();
   await $('files').setInputFiles({name:'renamed.pdf',mimeType:'application/pdf',buffer:Buffer.from('invalid')});
   assert.equal(await $('extract').isDisabled(),true);
   await $('assignments').locator('select').selectOption('core');await run();
   assert.match(await $('packet-status').textContent(),/^Finished with errors/);
   assert.equal(JSON.parse(await $('packet-result').textContent()).errors.length,1);
+  await $('back-to-pdfs').click();
   await $('files').setInputFiles(poi.file);
   await page.evaluate(()=>{document.querySelector('[data-id="extract"]').click();document.querySelector('[data-id="close-packet"]').click();});
   await page.locator('dialog').waitFor({state:'detached'});
-  return {importing,folder:true,pages:142,cards:734,npcs:71,traits:276,backgrounds:36,connections:10,charactersOnly:true,multipleFiles:true,duplicates:true,renamedAssignment:true,cancelAndRetry:true,invalidPDF:true,closeDuringExtraction:true};
+  return {importing,folder:true,pages:result.files.reduce((n,file)=>n+file.pages.length,0),cards:734,npcs:71,traits:276,backgrounds:36,connections:10,charactersOnly:true,multipleFiles:true,duplicates:true,renamedAssignment:true,cancelAndRetry:true,invalidPDF:true,closeDuringExtraction:true};
 }

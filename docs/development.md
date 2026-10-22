@@ -10,6 +10,44 @@ Node is used only for development checks. `npm test` runs the module lifecycle
 and permission checks plus parser regressions without external dependencies. The PDF comparison and
 browser tests require a locally installed Foundry copy and user-owned fixtures.
 
+### Current packet regression checks
+
+These checks run the real extractor against a local packet, verify edition-specific
+counts and known boundary/metadata failures, import into a disposable in-memory
+world, publish all 36 backgrounds, and confirm unchanged re-imports. The browser
+check also exercises folder discovery, the real PDF.js worker, conflict detection,
+review, saving and completion. It does not connect to a live Foundry world.
+
+```powershell
+$env:CROWS_PACKET_ROOT = (Resolve-Path ../playtest3).Path
+$env:CROWS_PLAYTEST_VERSION = "3"
+$env:PLAYWRIGHT_MODULE = "C:/path/to/playwright/index.mjs"
+npm run test:packet
+npm run test:packet-browser
+# Repeat with your Playtest 2 packet and CROWS_PLAYTEST_VERSION = "2".
+```
+
+Reports and browser screenshots go into ignored `out/playtest-*.json` and PNGs.
+No PDFs or extracted game text ship with the module. Unit tests use synthetic
+layouts for wrapped titles and slot requirements, cards without Stack labels,
+shared creature boxes, wrapped damage, renamed books, wearable metadata and both
+Miasma table layouts. Both official packets must have zero definition conflicts;
+the integration checks no longer choose arbitrary conflict candidates to complete
+an import. V3 must retain all five ordinary/enchanted pairs and the belt-note
+Healing Potion: 984 printed card occurrences and 716 imported documents.
+
+Explicit printed Enchantment labels produce a structured `enchantment` value,
+retained in importer flags, the item description and traits. The item name gains
+the enchantment in parentheses while provenance keeps the printed name. Only the
+known dungeon Creature Part comma variation is ignored during comparison. The
+Healing Potion preference requires an otherwise identical item whose sole extra
+prose is the final belt-slot/one-maneuver note; price or effect changes still
+conflict, and supplement overrides retain ordinary review.
+
+### Historical parser comparisons
+
+The system consumes `flags["fvtt-crows-pdf-importer"].wearable`, legacy `magicSlot`, and `spell.rank` directly, including with the module disabled. Nullable system overrides support custom items. The importer does not need to populate new schema defaults; the system's fingerprint ignores null wearable/rank defaults while preserving explicit overrides. Unknown ranks must never generate numeric Rank 0 traits. Mixed-case Book tokens in printed titles normalize to Book so Greater Animal Form retains its printed rank and casting fields. Existing malformed names and embedded copies are reviewed manually; they are not deleted or replaced by this normalization.
+
 The existing system's Python baseline generator can supply the comparison data:
 
 ```powershell
@@ -32,16 +70,39 @@ A local copy is present in the initial working directory, but is not committed.
 The baseline refers to the PDFs by local path. It is developer data, not a runtime
 dependency. Python is only used to compare against the old parser.
 
+These historical oracles retain known old-parser omissions: 20 v2 spell cards
+leave combined range/duration text in prose, and the v2 Fine Coin Purse is absent.
+The current parser promotes that metadata into spell fields and recovers the
+purse (735 v2 card occurrences instead of 734). Exact historical snapshot checks
+therefore report those intended differences; use the packet checks above for
+current compatibility validation. Other v2 card fields were compared separately
+and retained. The v2 creature/table regression counts remain 71 and 22.
+
 For browser checks, generate all baselines above and supply an existing Playwright installation and Chrome:
 
 ```powershell
 $env:PLAYWRIGHT_MODULE = "C:/path/to/playwright/index.mjs"
 npm run test:browser
+npm run test:review-browser
 ```
 
 The browser harness serves the installed PDF.js directly under Foundry-style
 routes, including a reverse-proxy prefix. It does not redistribute that library.
 Generated comparisons and browser reports go to ignored `out/`.
+
+`test:review-browser` needs Playwright and Chrome but no PDFs or installed Foundry.
+It uses 521 synthetic entries to check the scroll boundaries and persistent controls
+at desktop, narrow and short viewport sizes, plus entry status, cancellation, failed
+saves, retry, stale reviews and completion details. Screenshots go to `out/review-*.png`.
+
+The full browser suite also checks the local five-page spell-card supplement when
+present at `../playtest2_pdfs/Inventory Cards/Crows Spells for Patreon.pdf` (override
+with `CROWS_ADDITIONAL_PDF`). This fixture contains 81 spellbooks across pages with
+17, 20, 20, 20 and 4 cards. It checks renamed files, two simultaneous additional
+PDFs, provenance, duplicate collapse, filename-labelled conflict choices, standalone
+import, unchanged re-import, preservation of creator content, and an HTML download
+mixed with a valid PDF. The test reports a skip when the local fixture is absent;
+the copyrighted PDF and extracted content are not committed.
 
 ## Layout
 
@@ -128,6 +189,23 @@ available when no module content has been published.
 
 ## NPCs and creatures
 
+The PDF importer creates nine Actor folders inside `world.crows-bestiary`: Animal,
+Human, Monster, Unique, and Monster's Blood/Undead/Plant/Demon/Angel children.
+`system.type` chooses the destination; Elemental currently maps to Unique, and
+other unclassified types use Monster. **Follow-up:** add Monster / Elemental if
+more Elemental creatures are introduced. Re-import moves selected Elementals
+from the root Monster folder to Unique, preserving their content and any custom
+folder assignment elsewhere. Preflight records
+folder destinations and includes existing folder data in the stale-review check.
+Folder creation uses Foundry's Folder document API with the compendium's `pack`
+option. It runs after Actor content imports, then applies folder-only updates to
+selected unfiled Actors and the Elemental correction, including preserved entries. Other existing folder choices and
+unselected Actors stay untouched. Preserved Actors are classified by their current
+type, and ambiguous folder names stop preflight. Partial folder creation or filing
+can be retried without duplication. Creator snapshots strip compendium folder IDs.
+Unit tests cover these cases, failures and cancellation; v2/v3 browser packet tests
+verify every folder's population and a second save with unchanged folder IDs.
+
 The Ref book's 71 stat blocks (32 Animal, 27 Human, 3 Blood, 8 Undead and 1 Unique) are found from their
 filled boxes and stat labels, not a hardcoded page range. They map to the system's
 `monster` Actor type with the printed creature type, stamina, attributes,
@@ -164,6 +242,20 @@ not replace validation against a running Foundry world's actual Item class.
 
 ## Item mapping
 
+The repeatable `cards` source is for additional card PDFs and maps to Equipment &
+Spellbooks. Official packet sources retain their single-file checks. Unknown names
+can be assigned manually; card/spell filenames are hints, not content validation.
+The worker records the additional PDF's filename/path in `source.file` alongside
+its page and card index. Provenance is excluded when comparing duplicate candidate
+definitions. Core precedence removes only profession candidates, so differing
+supplement definitions remain available for explicit conflict resolution.
+
+Additional cards use the shared parser with flexible title/metadata recognition;
+the established packet parsing rules remain unchanged. Small book titles still
+require the adjacent Stack label, and metadata parsing recognizes actual labels
+rather than interpreting arbitrary prose. Starting-kit spell ranks use core cards
+when present, so adding supplemental ranks cannot change core character kits.
+
 Lore Books containing “This book relates to the <expertise> Lore expertise” gain
 that expertise in parentheses: `Lore Book (Nature)`, `Lore Book (Monster)`,
 `Lore Book (Historical)`, or `Lore Book (Magic)`. Unspecified books remain
@@ -199,7 +291,8 @@ unexpected headers, row counts, empty cells, or uncovered/overlapping results
 fail extraction. It bundles no result text. Unit tests cover wrapped cells and
 table replacement, edit protection, invalid data, locks and stale reviews.
 
-The browser packet check now imports 542 documents, including 21 RollTables,
+The browser packet check now imports 543 documents, including 22 RollTables
+(21 from the Ref book and Miasma Effects from the Rules Book),
 and verifies all remain unchanged on repeat import. The original content-only
 fixture run below still covers its 521 Item/Actor documents. RollTable payloads
 have also been checked against the installed Foundry 14.367 base document
@@ -214,6 +307,17 @@ system's real creation rules, and leaves all 521 documents unchanged on re-impor
 Creator integration tests cover module loading and legacy fallback. These are
 automated harness checks; no test wrote to the user's live Foundry world, and the
 user has confirmed the save flow in live Foundry.
+
+The internal `executeImport` function accepts `onEntry({id,name,status,message})`.
+IDs combine the target pack and the system source key, including a trait's tree.
+Statuses are `importing`, `created`, `updated`, `unchanged`, `preserved`, and `failed`;
+`message` is supplied for failures. The supported system importer calls `onProgress`
+once before each entry. The module confirms the preceding entry at the next callback,
+and the final entry when `importPack` resolves, using the result counter changes to
+identify the outcome. Completion therefore includes the tracking-flag write and
+needs no new system API. Cancellation is checked after acknowledging the completed
+entry, before announcing the next one. Unit tests cover this callback contract,
+including a tracking failure after document creation and duplicate trait names.
 
 ## License and content
 

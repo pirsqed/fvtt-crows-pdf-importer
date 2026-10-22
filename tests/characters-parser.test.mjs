@@ -23,6 +23,14 @@ test('background mapping combines common kits and preserves expertise uses and c
   const broken=book();broken.backgrounds[0].fields.Stamina='unknown';assert.throws(()=>finalizeBackgrounds(broken,[spell]),/invalid background/);
 });
 
+test('additional spell ranks do not change core starting kits',()=>{
+  const extra={...spell,source:'cards',spell:{rank:4}};
+  const [b]=finalizeBackgrounds(book(),[extra,{...spell,source:'core'}]);
+  assert.ok(b.startingKit.some(item=>item.name==='Example Spell Book R1'));
+  const [standalone]=finalizeBackgrounds(book(),[extra]);
+  assert.ok(standalone.startingKit.some(item=>item.name==='Example Spell Book R4'));
+});
+
 test('trait mapping distinguishes connected traits from cheaper prerequisites and escapes descriptions',()=>{
   const records=Array.from({length:12},(_,i)=>({name:i===0?'Sieze the Advantage':i===11?'Weapon Expert':`Trait ${i}`,cost:10*(Math.floor(i/3)+1),starting:i<3,desc:'Safe <img> text'}));
   const items=traitItems({lines:[{spans:[{size:14,text:'Blackmsithing'}]}]},{records,groups:[[0,3,6]]},8);

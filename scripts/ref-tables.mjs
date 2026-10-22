@@ -1,3 +1,4 @@
+import {REF_TABLES_V3,RULES_TABLES_V3,RULES_BACKLASHES_V3} from './playtest3-tables.mjs';
 // Layout map for the user-supplied Playtest 2 Ref book. No result text is bundled.
 const segment=(page,column,top,bottom,rows)=>({page,column,top,bottom,rows});
 export const REF_TABLES=[
@@ -23,7 +24,7 @@ export const REF_TABLES=[
   ['Blood Dungeon Encounters',6,[segment(32,0,385,497,6)]],
   ['Undead Dungeon Encounters',6,[segment(34,0,403,561,10)]]
 ];
-export const REF_TABLE_PAGES=new Set(REF_TABLES.flatMap(([, ,segments])=>segments.map(s=>s.page)));
+export const REF_TABLE_PAGES=new Set([...REF_TABLES,...REF_TABLES_V3].flatMap(([, ,segments])=>segments.map(s=>s.page)));
 const scope='fvtt-crows-pdf-importer';
 const escape=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const clean=s=>s.replace(/\s+/g,' ').trim();
@@ -34,7 +35,7 @@ export function readTableCells(layout,{column,top,bottom,rows}){
   const left=column?222:36,right=column?396:210;
   const lines=layout.paths.filter(p=>p.width>0).flatMap(p=>p.segments);
   const ys=unique(lines.filter(([a,b])=>Math.abs(a[1]-b[1])<0.1&&Math.abs(a[0]-b[0])>12&&Math.min(a[0],b[0])>=left-1&&Math.abs(Math.max(a[0],b[0])-right)<1&&a[1]>=top-1&&a[1]<=bottom+1).map(([a])=>a[1]));
-  if(ys.length!==rows+2)throw new Error(`Expected ${rows} table rows, found ${ys.length-2}. Check the Ref book version.`);
+  if(ys.length!==rows+2)throw new Error(`Expected ${rows} table rows, found ${Math.max(0,ys.length-2)}. Check the book version and table layout.`);
   const headerY=(ys[0]+ys[1])/2;
   const xs=unique(lines.filter(([a,b])=>Math.abs(a[0]-b[0])<0.1&&a[0]>=left-1&&a[0]<=right+1&&Math.min(a[1],b[1])<headerY&&Math.max(a[1],b[1])>headerY).map(([a])=>a[0]));
   if(xs.length<3)throw new Error('Missing table column boundaries.');
@@ -56,7 +57,7 @@ function rangeOf(text){
   return [+match[1],match[3]?Number.MAX_SAFE_INTEGER:+(match[2]??match[1])];
 }
 
-function document(name,die,rows,pages,notes=[]){
+function document(name,die,rows,pages,notes=[],version=2){
   const results=rows.map(({range,text})=>{
     const colon=text.indexOf(':');
     // Reward entries are titles only; omit explanatory prose after the first sentence.
@@ -65,17 +66,19 @@ function document(name,die,rows,pages,notes=[]){
     const description=titleOnly||colon===-1?'':escape(text.slice(colon+1).trim());
     return {type:'text',name:title,description,range,weight:range[1]===Number.MAX_SAFE_INTEGER?1:range[1]-range[0]+1,drawn:false};
   });
-  return {name,img:'icons/svg/d20-grey.svg',description:`<p>Ref Book for Playtest 2, pages ${pages.join(', ')}.</p>`+notes.map(n=>`<p>${escape(n)}</p>`).join(''),formula:`1d${die}`,replacement:true,displayRoll:true,results,
+  return {name,img:'icons/svg/d20-grey.svg',description:`<p>Ref Book for Playtest ${version}, pages ${pages.join(', ')}.</p>`+notes.map(n=>`<p>${escape(n)}</p>`).join(''),formula:`1d${die}`,replacement:true,displayRoll:true,results,
     flags:{[scope]:{source:{set:'ref',page:pages[0],pages},notes}}};
 }
 
 export function parseRefTables(layouts){
   const byPage=new Map(layouts.map(l=>[l.page,l])),tables=[],warnings=[];
-  for(const [name,die,segments] of REF_TABLES){
+  const first=byPage.get(1)?.lines.flatMap(l=>l.spans).map(s=>s.text).join(' ')??'';
+  const version=/Combat Terrain/.test(first)?3:2;
+  for(const [name,die,segments] of version===3?REF_TABLES_V3:REF_TABLES){
     const rows=[];
     for(const part of segments){
       const layout=byPage.get(part.page);if(!layout)throw new Error(`${name}: missing page ${part.page}.`);
-      const [header,...cells]=readTableCells(layout,part);
+      let header,cells;try{[header,...cells]=readTableCells(layout,part);}catch(error){throw new Error(`${name}, page ${part.page}: ${error.message}`);}
       if(!/^d(?:6|10|100)$/.test(header[0]))throw new Error(`${name}: missing die header on page ${part.page}.`);
       for(const [roll,...values] of cells){
         if(values.some(v=>!v))throw new Error(`${name}: empty result cell on page ${part.page}.`);
@@ -83,7 +86,17 @@ export function parseRefTables(layouts){
       }
     }
     const notes=[];let formulaDie=die;
-    if(name==='Minor Interesting Things'){
+    if(version===3&&name==='Miasma-Touched Humans'){
+      // The supplied v3 table skips 29. Preserve that uncertainty instead of
+      // silently assigning a creature or rejecting the entire bestiary.
+      if(!rows.some(r=>r.range[0]<=29&&r.range[1]>=29)
+        &&rows.some(r=>r.range[0]===26&&r.range[1]===28)&&rows.some(r=>r.range[0]===30&&r.range[1]===32)){
+        rows.push({range:[29,29],text:'Unspecified printed result: Playtest 3 omits result 29. The Ref should choose an encounter or reroll.'});
+        rows.sort((a,b)=>a.range[0]-b.range[0]);
+        notes.push('Playtest 3 omits result 29. An explicit Ref-choice result preserves the gap without inventing a creature.');
+      }
+    }
+    if(version===2&&name==='Minor Interesting Things'){
       for(const [from,to] of [[[45,46],[46,46]],[[58,58],[57,57]],[[59,59],[58,59]]]){
         const matches=rows.filter(r=>r.range[0]===from[0]&&r.range[1]===from[1]);
         if(matches.length!==1)throw new Error(`${name}: expected printed range ${from.join('–')} for the Playtest 2 correction.`);
@@ -91,7 +104,7 @@ export function parseRefTables(layouts){
       }
       notes.push('Playtest 2 corrections: gems use 46; the case of steel crossbow bolts uses 57; the fine torch uses 58–59.');
     }
-    if(name==='Undead Dungeon Encounters'){
+    if(version===2&&name==='Undead Dungeon Encounters'){
       formulaDie=10;
       notes.push('Playtest 2 correction: the printed Blood Dungeon Encounters title and d6 header are corrected to Undead Dungeon Encounters and d10 for its ten results.');
     }
@@ -100,11 +113,89 @@ export function parseRefTables(layouts){
       if(count!==1)throw new Error(`${name}: result ${value} has ${count?'overlapping entries':'no entry'}.`);
     }
     if(name==='Major Interesting Things')notes.push('The printed 101+ result is for Greed Exchange in the temple institution. It is retained for modified rolls; an ordinary d100 cannot reach it.');
+    if(version===3&&rows.some(r=>r.range[0]===101))notes.push('The printed 101+ result is retained for modified rolls; an ordinary d100 cannot reach it.');
     if(notes.length)warnings.push(...notes.map(note=>`${name}: ${note}`));
-    tables.push(document(name,formulaDie,rows,[...new Set(segments.map(s=>s.page))],notes));
+    tables.push(document(name,formulaDie,rows,[...new Set(segments.map(s=>s.page))],notes,version));
   }
   const weather=tables.find(t=>t.name==='Travel Encounters').results.find(r=>r.name==='Bad Weather');
   if(!weather)throw new Error('Travel Encounters: missing Bad Weather result. Check the Ref book version.');
-  weather.description='Use the Bad Weather table for the current climate or season in the Ref Book for Playtest 2, page 1. Roll any die: odd selects the first listed event; even selects the second. Weather lasts 24 hours; see pages 1–2 for effects.';
+  weather.description=`Use the Bad Weather table for the current climate or season in the Ref Book for Playtest ${version}, page ${version===3?2:1}. Roll any die: odd selects the first listed event; even selects the second. Weather lasts 24 hours; see pages ${version===3?'2–3':'1–2'} for effects.`;
   return {tables,tableWarnings:warnings};
+}
+
+// Layout map for the user-supplied Playtest 2 Rules Book. No result text is bundled.
+export const RULES_TABLES=[
+  ['Miasma Effects',[segment(28,0,49,535,5),segment(28,1,36,350,2)]]
+];
+export const RULES_TABLE_PAGES=new Set([...RULES_TABLES,RULES_BACKLASHES_V3].flatMap(([,...rest])=>rest.at(-1).map(s=>s.page)));
+const FULL_CORRUPTION=13;
+
+/** Miasma results keep both printed effects: the first as the result name, the second as its description. */
+export function parseRulesTables(layouts){
+  const byPage=new Map(layouts.map(l=>[l.page,l])),tables=[];
+  // The v3 first column has four tall rows; v2 has five shorter rows.
+  // Select one whole layout, never fall back per segment or mix editions.
+  const first=byPage.get(28);
+  let version=2;
+  if(first){try{readTableCells(first,RULES_TABLES[0][1][0]);}catch{version=3;}}
+  for(const [name,segments] of version===3?RULES_TABLES_V3:RULES_TABLES){
+    const rows=[];
+    for(const part of segments){
+      const layout=byPage.get(part.page);if(!layout)throw new Error(`${name}: missing page ${part.page}.`);
+      let header,cells;try{[header,...cells]=readTableCells(layout,part);}catch(error){throw new Error(`${name}, page ${part.page}: ${error.message}`);}
+      if(header.length!==3||!/^d10\s*\+\s*Cruelty$/i.test(header[0]))throw new Error(`${name}: missing "d10 + Cruelty" header on page ${part.page}. Check the Rules Book version.`);
+      for(const [roll,first,second] of cells){
+        if(!first||!second)throw new Error(`${name}: empty effect cell on page ${part.page}.`);
+        rows.push({range:rangeOf(roll),first,second});
+      }
+    }
+    for(let value=1;value<=FULL_CORRUPTION;value++){
+      const count=rows.filter(r=>r.range[0]<=value&&r.range[1]>=value).length;
+      if(count!==1)throw new Error(`${name}: result ${value} has ${count?'overlapping entries':'no entry'}.`);
+    }
+    const pages=[...new Set(segments.map(s=>s.page))];
+    tables.push({name,img:'icons/svg/d20-grey.svg',formula:'1d10',replacement:true,displayRoll:true,
+      description:`<p>Rules Book for Playtest ${version}, page ${pages.join(', ')}. Roll 1d10 + cruelty level. Each result's name is the first effect; its description is the second effect.</p>`,
+      results:rows.map(({range,first,second})=>({type:'text',name:first,description:escape(second),range,
+        weight:range[1]===Number.MAX_SAFE_INTEGER?1:range[1]-range[0]+1,drawn:false})),
+      flags:{[scope]:{source:{set:'rules',page:pages[0],pages},miasma:true}}});
+  }
+  const warnings=[];
+  if(version===3)tables.push(parseBacklashes(byPage,warnings));
+  return {tables,tableWarnings:warnings};
+}
+
+/** Backlashes: 1d100 + the triggering spell's rank, so results continue to 105. */
+function parseBacklashes(byPage,warnings){
+  const [name,max,segments]=RULES_BACKLASHES_V3,rows=[];
+  for(const part of segments){
+    const layout=byPage.get(part.page);if(!layout)throw new Error(`${name}: missing page ${part.page}.`);
+    let header,cells;try{[header,...cells]=readTableCells(layout,part);}catch(error){throw new Error(`${name}, page ${part.page}: ${error.message}`);}
+    if(header.length!==2||!/^d100\s*\+\s*Rank$/i.test(header[0]))throw new Error(`${name}: missing "d100 + Rank" header on page ${part.page}. Check the Rules Book version.`);
+    for(const [roll,text] of cells){
+      if(!text)throw new Error(`${name}: empty result cell on page ${part.page}.`);
+      rows.push({range:rangeOf(roll),text});
+    }
+  }
+  const notes=[];
+  // Playtest 3 prints 61-62 followed by 62-64; 63 and 64 are otherwise missing.
+  const misprint=rows.filter(r=>r.range[0]===62&&r.range[1]===64);
+  if(misprint.length===1&&rows.some(r=>r.range[0]===61&&r.range[1]===62)){
+    misprint[0].range=[63,64];
+    notes.push('Playtest 3 prints this result as 62-64, overlapping 61-62. It is imported as 63-64.');
+  }
+  for(let value=1;value<=max;value++){
+    const count=rows.filter(r=>r.range[0]<=value&&r.range[1]>=value).length;
+    if(count!==1)throw new Error(`${name}: result ${value} has ${count?'overlapping entries':'no entry'}.`);
+  }
+  warnings.push(...notes.map(note=>`${name}: ${note}`));
+  const pages=[...new Set(segments.map(s=>s.page))];
+  return {name,img:'icons/svg/d20-grey.svg',formula:'1d100',replacement:true,displayRoll:true,
+    description:`<p>Rules Book for Playtest 3, pages ${pages[0]}–${pages.at(-1)}. Roll 1d100 + the rank of the triggering spell; add the rank to the rolled result before reading the table. Results 101–105 are reachable only with a rank bonus.</p>`+notes.map(n=>`<p>${escape(n)}</p>`).join(''),
+    results:rows.map(({range,text})=>{
+      // Each result is one paragraph of effect text; use its first sentence as the title.
+      const title=text.split(/(?<=[.!?])\s+/,1)[0];
+      return {type:'text',name:title,description:escape(text),range,weight:range[1]-range[0]+1,drawn:false};
+    }),
+    flags:{[scope]:{source:{set:'rules',page:pages[0],pages},notes,backlash:true}}};
 }

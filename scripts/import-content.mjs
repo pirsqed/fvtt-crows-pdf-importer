@@ -1,3 +1,4 @@
+import {isBestiary,npcFolderPath,isElementalInMonster,checkBestiaryFolders,organizeBestiary} from './bestiary-folders.mjs';
 export const SCOPE='fvtt-crows-pdf-importer';
 const SYSTEM='fvtt-crows-system';
 export const PACKS=[
@@ -11,7 +12,32 @@ const clone=structuredClone;
 const key=doc=>`${doc.type}:${doc.name.trim().toLowerCase()}${doc.type==='trait'?':'+String(doc.system.tree??'').trim().toLowerCase():''}`;
 const stable=value=>Array.isArray(value)?value.map(stable):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(k=>[k,stable(value[k])])):value;
 const fingerprint=value=>JSON.stringify(stable(value));
-const comparable=doc=>{const value=clone(doc);if(value.flags?.[SCOPE])delete value.flags[SCOPE].source;return fingerprint(value);};
+const comparable=doc=>{
+  const value=clone(doc);
+  // A known cosmetic difference between the printed dungeon Creature Part cards.
+  // Keep this exception local; punctuation can change other items' meaning.
+  if(value.type==='equipment'&&value.name==='Creature Part'&&value.flags?.[SCOPE]?.source?.set==='poi'&&value.system?.description)
+    value.system.description=value.system.description.replace(/\bcreature, used\b/g,'creature used');
+  if(value.flags?.[SCOPE])delete value.flags[SCOPE].source;
+  return fingerprint(value);
+};
+function preferBeltPotion(candidates){
+  const prose=/<p class=['"]card-prose['"]>(.*?)<\/p>/s;
+  return candidates.filter(short=>{
+    if(short.type!=='equipment'||short.name!=='Healing Potion'||short.flags?.[SCOPE]?.source?.set!=='poi')return true;
+    const brief=short.system?.description?.match(prose)?.[1];if(!brief)return true;
+    return !candidates.some(long=>{
+      if(long===short||long.flags?.[SCOPE]?.source?.set!=='poi')return false;
+      const full=long.system?.description?.match(prose)?.[1];
+      if(!full?.startsWith(brief+' '))return false;
+      const addition=full.slice(brief.length).trim().replace(/<\/?[bi]>/g,'');
+      if(!/^[^.]*\bbelt slot\b[^.]*\bone maneuver\.$/i.test(addition))return false;
+      // Prefer the printed clarification only if every other field matches.
+      const equivalent=clone(long);equivalent.system.description=long.system.description.replace(prose,()=>`<p class='card-prose'>${brief}</p>`);
+      return comparable(equivalent)===comparable(short);
+    });
+  });
+}
 export const systemAdapter=()=>import(new URL('../../../systems/fvtt-crows-system/module/import-content.mjs',import.meta.url).href);
 
 export function resolveImport(report,choices={}){
@@ -24,9 +50,11 @@ export function resolveImport(report,choices={}){
   for(const group of groups.values()){
     let candidates=group.documents;
     if(group.pack===PACKS[0]&&candidates.some(d=>d.flags?.[SCOPE]?.source?.set==='core')){
-      const preferred=candidates.filter(d=>d.flags?.[SCOPE]?.source?.set==='core');professionCopies+=candidates.length-preferred.length;candidates=preferred;
+      // Core overrides profession copies only. Supplements can intentionally
+      // revise a core card and must participate in conflict review.
+      const preferred=candidates.filter(d=>d.flags?.[SCOPE]?.source?.set!=='profession');professionCopies+=candidates.length-preferred.length;candidates=preferred;
     }
-    const distinct=[...new Map(candidates.map(doc=>[comparable(doc),doc])).values()];repeated+=candidates.length-distinct.length;
+    const distinct=preferBeltPotion([...new Map(candidates.map(doc=>[comparable(doc),doc])).values()]);repeated+=candidates.length-distinct.length;
     let selected=distinct[0];
     if(distinct.length>1){
       const choice=choices[group.id];
@@ -37,8 +65,11 @@ export function resolveImport(report,choices={}){
     if(selected)packs.find(pack=>pack.config===group.pack).data.push(clone(selected));
   }
   const unresolved=conflicts.filter(c=>c.choice!=='skip'&&(!Number.isInteger(c.choice)||c.choice<0||c.choice>=c.candidates.length));
+  const creationIssue=report.errors?.length?'Character-creation publishing is unavailable until failed PDFs are resolved. You can still import successful entries.'
+    :report.backgroundIssues?.length?'Character-creation publishing is unavailable until starting kits are resolved. You can still import traits and other entries.'
+    :!report.backgrounds?.length||!report.connections?.length?'Extract the Characters Book and resolve its starting kits to publish character-creation content.':'';
   return {packs:packs.filter(p=>p.data.length),conflicts,unresolved,repeated,professionCopies,
-    creation:report.backgrounds?.length&&report.connections?.length?{backgrounds:clone(report.backgrounds),connections:clone(report.connections)}:null};
+    creationIssue,creation:!creationIssue?{backgrounds:clone(report.backgrounds),connections:clone(report.connections)}:null};
 }
 
 function requireGM(){
@@ -59,6 +90,7 @@ export async function prepareImport(bundle,{adapter,forceOverwrite=false}={}){
   for(const {config,data} of bundle.packs){
     const pack=game.packs.get(`world.${config.name}`);checkPack(pack,config);
     const existing=pack?await pack.getDocuments():[];
+    const folders=isBestiary(config)?checkBestiaryFolders(pack):null,folderAssignments=[];
     const projection=new Map(existing.map(doc=>[doc.id,doc.toObject()]));
     const prepared=clone(data);
     for(const raw of prepared){
@@ -87,14 +119,20 @@ export async function prepareImport(bundle,{adapter,forceOverwrite=false}={}){
       else if(old&&meta.source===source)action='unchanged';
       else if(old&&config.type==='Actor'){action='preserve';reason='changed Actor source; inventory review required';}
       else if(old)action='update';
-      rows.push({pack:config.label,name:raw.name,action,reason});
+      let folderPath=null;
+      if(isBestiary(config)&&matches.length<=1&&(!old?.toObject().folder||isElementalInMonster(old,folders))){
+        // Preserved content retains its current creature type, even if the PDF changed.
+        folderPath=npcFolderPath(old&&action!=='update'?old:raw);
+        folderAssignments.push({key:k,actorId:old?.id??null,name:raw.name,path:folderPath,fromFolder:old?.toObject().folder??null});
+      }
+      rows.push({id:`${config.name}:${k}`,pack:config.label,name:raw.name,action,reason,...(folderPath?{folderPath}:{})});
       if(action==='create'||action==='update')projection.set(old?.id??'new:'+k,clone(raw));
     }
     // Foundry constructors own and may mutate their input while adding defaults.
     // Validation must not change the reviewed payload or its source fingerprint.
     adapter.validateImport(clone(prepared),config);
-    state.push({name:config.name,exists:Boolean(pack),documents:existing.map(doc=>({id:doc.id,value:doc.toObject()})).sort((a,b)=>a.id.localeCompare(b.id))});
-    packs.push({config,data:prepared});
+    state.push({name:config.name,exists:Boolean(pack),documents:existing.map(doc=>({id:doc.id,value:doc.toObject()})).sort((a,b)=>a.id.localeCompare(b.id)),...(folders?{folders}:{})});
+    packs.push({config,data:prepared,...(isBestiary(config)?{folderAssignments}:{})});
     projected.set(config.name,[...projection.values()]);
   }
   if(bundle.creation){
@@ -107,7 +145,7 @@ export async function prepareImport(bundle,{adapter,forceOverwrite=false}={}){
     validateCreation({...bundle.creation,equipment:projected.get(PACKS[0].name),traits:projected.get(PACKS[2].name),monsters:projected.get(PACKS[3].name)});
   }
   const previous=stored(),signature=fingerprint({state,previous,packs,creation:bundle.creation,forceOverwrite});
-  return {forceOverwrite,bundle:clone(bundle),packs,rows,signature,previous,creation:Boolean(bundle.creation),counts:Object.fromEntries(['create','update','unchanged','preserve'].map(action=>[action,rows.filter(r=>r.action===action).length]))};
+  return {forceOverwrite,bundle:clone(bundle),packs,rows,signature,previous,creation:Boolean(bundle.creation),folderAssignments:packs.reduce((n,p)=>n+(p.folderAssignments?.length??0),0),counts:Object.fromEntries(['create','update','unchanged','preserve'].map(action=>[action,rows.filter(r=>r.action===action).length]))};
 }
 
 function validateCreation(content){
@@ -137,7 +175,7 @@ async function creationSnapshot(creation){
 }
 
 /** Explicit user action. Recheck the review, then use the system's guarded importer. */
-export async function executeImport(review,{adapter,signal,onProgress=()=>{}}={}){
+export async function executeImport(review,{adapter,signal,onProgress=()=>{},onEntry=()=>{}}={}){
   requireGM();adapter??=await systemAdapter();
   if(adapter.CrowsContentImport.busy)throw new Error('An import is already running.');
   adapter.CrowsContentImport.busy=true;
@@ -146,9 +184,39 @@ export async function executeImport(review,{adapter,signal,onProgress=()=>{}}={}
   try{
     checkpoint();const current=await prepareImport(review.bundle,{adapter,forceOverwrite:review.forceOverwrite});
     if(current.signature!==review.signature)throw new Error('World content changed since the review. Review the import again.');
-    for(const {config,data} of current.packs){
+    for(const {config,data,folderAssignments} of current.packs){
       checkpoint();const result={label:config.label,created:0,updated:0,unchanged:0,preserved:[]};results.push(result);
-      await adapter.CrowsContentImport.importPack(config,data,result,text=>{checkpoint();onProgress(text);},{forceOverwrite:current.forceOverwrite});
+      let index=-1,active=null,before=null;
+      const counts=()=>({created:result.created,updated:result.updated,unchanged:result.unchanged,preserved:result.preserved.length});
+      const finishEntry=()=>{
+        if(!active)return;
+        const after=counts(),status=Object.keys(after).find(key=>after[key]>before[key]);
+        onEntry({...active,status});active=null;
+      };
+      try{
+        await adapter.CrowsContentImport.importPack(config,data,result,text=>{
+          // The system reports each entry BEFORE processing it. Reaching the next
+          // callback confirms the previous entry, including its tracking flag,
+          // finished successfully. This also works with existing system releases.
+          finishEntry();checkpoint();
+          const raw=data[++index];
+          active={id:`${config.name}:${adapter.sourceKey(raw)}`,name:raw.name};before=counts();
+          onEntry({...active,status:'importing'});onProgress(text);
+        },{forceOverwrite:current.forceOverwrite});
+        finishEntry();
+        if(isBestiary(config)){
+          result.filed=0;
+          try{
+            await organizeBestiary(game.packs.get(`world.${config.name}`),folderAssignments,{sourceKey:adapter.sourceKey,checkpoint,onProgress,onFiled:()=>result.filed++});
+          }catch(error){
+            if(error.name==='AbortError')throw error;
+            throw new Error(`Bestiary folder organization stopped: ${error.message}`,{cause:error});
+          }
+        }
+      }catch(error){
+        if(active)onEntry({...active,status:'failed',message:error.message});
+        throw error;
+      }
     }
     if(current.bundle.creation){
       checkpoint();onProgress('Checking and publishing character-creation data…');

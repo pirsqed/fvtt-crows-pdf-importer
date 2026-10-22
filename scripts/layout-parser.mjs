@@ -4,6 +4,9 @@ const bounds = points => [Math.min(...points.map(p => p[0])), Math.min(...points
 const center = r => [(r[0] + r[2]) / 2, (r[1] + r[3]) / 2];
 const inside = (p, r, t = 0) => p[0] >= r[0]-t && p[0] < r[2]+t && p[1] >= r[1]-t && p[1] < r[3]+t;
 const order = divisor => (a,b) => Math.round(a[1]/divisor)-Math.round(b[1]/divisor) || a[0]-b[0];
+// Printed placeholder cards deliberately leave Stack and slot values to the Ref or finished item.
+const STACKLESS_TITLES = new Set(['Unidentified Item', 'Unfinished Craftable Item']);
+const stacklessTitle = line => STACKLESS_TITLES.has(norm(line.spans.map(s=>s.text).join(' '))) && line.spans.every(s=>s.bold);
 
 function connections(segments, boxes) {
   const parents=segments.map((_,i)=>i);
@@ -63,8 +66,26 @@ function cards({lines,paths},context={}) {
     for(const s of spans){const yc=center(s.bbox)[1];let l=grouped.at(-1);if(l && Math.abs(yc-l.yc)<=3.5){l.spans.push(s);l.yc=(l.yc+yc)/2;}else grouped.push({yc,spans:[s]});}
     for(const l of grouped){l.spans.sort((a,b)=>a.bbox[0]-b.bbox[0]);l.text="";let end=null;for(const s of l.spans){if(end!==null && s.bbox[0]-end>0.8 && !l.text.endsWith(" ") && !s.text.startsWith(" "))l.text+=" ";l.text+=s.text;end=s.bbox[2];}}
     const starts=[];
-    grouped.forEach((l,i)=>{const s=l.spans[0],size=Math.round(s.size*10)/10;if(!(s.bold || s.italic && size>=9) || size<=7.6 || excluded.has(s.text.trim().split(' ')[0]) || excluded.has(s.text.trim()) || /12-16|17\+|≤/.test(l.text))return;
-      if(/Stack\s*\d/.test(l.text) || grouped.slice(i+1,i+3).some(n=>/^\s*Stack\s*\d/.test(n.text) && n.spans.some(s=>s.bold)))starts.push(i);});
+    // One Stack label identifies one card, including small or multiline titles.
+    // Looking for every bold title independently can split one wrapped title or
+    // silently append a small-font spell to the previous card.
+    grouped.forEach((l,i)=>{
+      if(stacklessTitle(l)){starts.push(i);return;}
+      if(!/Stack\s*\d+/.test(l.text)||!l.spans.some(s=>s.bold&&/Stack/.test(s.text)))return;
+      let start=i;
+      const prefix=norm(l.text.split('Stack')[0]);
+      if(!prefix||/^R\s*\d+$/.test(prefix)||/^Book\b/.test(prefix)){
+        for(let cursor=i-1;cursor>=0&&i-cursor<=3;cursor--){
+          const previous=grouped[cursor],first=previous.spans[0];
+          if(/^(?:UD\s*:?\s*\d|Slot\s*:|R\s*\d+\s*$)/.test(norm(previous.text)))continue;
+          if(!(first.bold||first.italic)||/Stack|12-16|17\+|≤/.test(previous.text)
+            ||excluded.has(first.text.trim())&&first.text.trim()!=='Book')break;
+          start=cursor;
+        }
+      }
+      if(start===i&&!prefix)throw new Error(`Card with Stack label has no title on page ${context.page??'?'} near ${grouped.slice(Math.max(0,i-2),i+1).map(l=>l.text).join(' / ')}.`);
+      starts.push(start);
+    });
     starts.forEach((start,i)=>{
       const cardLines=grouped.slice(start,starts[i+1]??grouped.length).map(line=>({...line,
         size:Math.max(...line.spans.map(s=>Math.round(s.size*10)/10)),
@@ -77,6 +98,9 @@ function cards({lines,paths},context={}) {
       card.column=column.map(v=>Math.round(v*10)/10);parsedCards.push(card);
     });
   }
+  const expected=lines.flatMap(l=>l.spans).reduce((n,s)=>n+(s.bold?(s.text.match(/Stack/g)??[]).length:0),0);
+  const placeholders=lines.filter(stacklessTitle).length;
+  if(parsedCards.length!==expected+placeholders)throw new Error(`Page ${context.page??'?'}: found ${expected} Stack labels${placeholders?` and ${placeholders} Unidentified Item titles`:''} but parsed ${parsedCards.length} cards. Check the card boundaries.`);
   return {columns,records,parsedCards};
 }
 

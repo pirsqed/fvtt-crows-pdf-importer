@@ -18,7 +18,7 @@ export function setupImport(){
   };
   const packs=new Map();
   const makePack=(name,type,entries=[])=>{
-    const docs=entries.map(makeDoc),pack={collection:'world.'+name,documentName:type,locked:false,docs,
+    const docs=entries.map(makeDoc),pack={collection:'world.'+name,documentName:type,locked:false,docs,folders:new Map(),
       async getDocuments(){return [...docs];},documentClass:{async createDocuments(data){writes.push(['create',name]);const result=data.map(makeDoc);docs.push(...result);return result;}}};
     packs.set(pack.collection,pack);return pack;
   };
@@ -29,6 +29,11 @@ export function setupImport(){
   globalThis.Item=globalThis.Actor=class{constructor(source){this.source=source;if(source.system.invalid)throw new Error('Invalid test field');}validate(){return true;}};
   globalThis.RollTable=class{constructor(source){if(!source.results.length||source.results.some(r=>r.range[0]>r.range[1]))throw new Error('Invalid table results');}validate(){return true;}};
   globalThis.CompendiumCollection={async createCompendium({name,type}){writes.push(['pack',name]);return makePack(name,type);}};
+  const makeFolder=(pack,source)=>{const folder=makeDoc({type:'Actor',folder:null,...source});pack.folders.set(folder.id,folder);return folder;};
+  globalThis.Folder={async createDocuments(data,options){
+    const pack=packs.get(options?.pack);if(!pack||pack.locked)throw new Error('A writable compendium is required for folders.');
+    writes.push(['folders',pack.collection]);return data.map(source=>makeFolder(pack,source));
+  }};
   adapter.CrowsContentImport.busy=false;
-  return {writes,makeDoc,makePack,packs,get saved(){return saved;}};
+  return {writes,makeDoc,makePack,makeFolder,packs,get saved(){return saved;}};
 }

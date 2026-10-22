@@ -36,11 +36,11 @@ jobs:
           ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0
           path: fvtt-crows-pdf-importer
-      # Pin the companion adapter used by import-content integration tests.
+      # Pin the v0.3.0 companion system used by import-content integration tests.
       - uses: actions/checkout@v4
         with:
           repository: pirsqed/fvtt-crows-system
-          ref: 15f2ff138d39264a033f49037507cd9861388e0b
+          ref: 86c17498c353d13e202516b4b8ea6e718351d1f6
           path: fvtt-crows-system
       - uses: actions/setup-node@v4
         with:

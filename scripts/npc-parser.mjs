@@ -43,9 +43,14 @@ export function parseNPCBlock(rows,page){
   if(index===rows.length)throw new Error(`${rows[0].text}: attack table was not found.`);
   index++;
   while(index<rows.length){
-    const match=rows[index].text.match(/^(.+?\(\+\d+\)\**)\s+(.+?)\s+(\d+ (?:P )?dam\**)\s+(\d+ (?:P )?dam\**)\s*$/);
+    const pattern=/^(.+?\([+-]\d+\)\**)\s+(.+?)\s+(\d+ (?:P )?dam\**)\s+(\d+ (?:P )?dam\**)\s*$/;
+    let text=rows[index].text,match=text.match(pattern),end=index;
+    // Damage can wrap, but never consume the next attack or feature heading.
+    while(!match&&end+1<rows.length&&end-index<2&&!rows[end+1].first_bold){
+      text+=' '+rows[++end].text;match=text.match(pattern);
+    }
     if(!match)break;
-    attacks.push({name:norm(match[1]),range:norm(match[2]),t2:match[3],t3:match[4]});index++;
+    attacks.push({name:norm(match[1]),range:norm(match[2]),t2:match[3],t3:match[4]});index=end+1;
   }
   if(!attacks.length)throw new Error(`${rows[0].text}: no attacks could be parsed.`);
   let feature;
@@ -69,7 +74,7 @@ export function parseNPCBlock(rows,page){
 export function npcs({lines,paths},page){
   const boxes=paths.filter(path=>path.fill&&path.rect&&path.rect[2]-path.rect[0]>60&&path.rect[3]-path.rect[1]>40).map(path=>path.rect);
   boxes.sort((a,b)=>Number(a[0]>200)-Number(b[0]>200)||a[1]-b[1]);
-  const records=[];
+  const blocks=[];
   for(const box of boxes){
     const spans=lines.flatMap(line=>line.spans).filter(span=>{
       const [x0,y0,x1,y1]=span.bbox,x=(x0+x1)/2,y=(y0+y1)/2;
@@ -78,8 +83,18 @@ export function npcs({lines,paths},page){
     const rows=[];
     for(const span of spans){let row=rows.at(-1);if(!row||Math.abs(span.bbox[1]-row.y)>2.5){row={y:span.bbox[1],spans:[]};rows.push(row);}row.spans.push(span);}
     for(const row of rows){row.spans.sort((a,b)=>a.bbox[0]-b.bbox[0]);row.text=norm(row.spans.map(span=>span.text).join(' '));row.all_bold=row.spans.every(span=>span.bold);row.first_bold=row.spans[0].bold;}
-    const block=parseNPCBlock(rows,page);if(block)records.push(block);
+    const starts=rows.flatMap((row,i)=>/\bSize:\s*.+\bPower:\s*/.test(row.text)?[i-1]:[]);
+    // A long stat block can continue in the next column's box, which has no
+    // statistics of its own (Elemental of Regret, Playtest 3 Ref p. 56).
+    if(!starts.length){if(rows.length&&blocks.length)blocks.at(-1).push(...rows);continue;}
+    for(const [i,start] of starts.entries()){
+      if(start<0||!rows[start].all_bold)throw new Error(`Page ${page}: creature statistics have no title.`);
+      blocks.push(rows.slice(start,starts[i+1]??rows.length));
+    }
   }
+  const records=blocks.map(rows=>parseNPCBlock(rows,page)).filter(Boolean);
+  const expected=lines.flatMap(l=>l.spans).reduce((n,s)=>n+(s.text.match(/\bPower\s*:/g)??[]).length,0);
+  if(records.length!==expected)throw new Error(`Page ${page}: found ${expected} creature stat blocks but parsed ${records.length}. Check the creature boundaries.`);
   return records;
 }
 
@@ -87,14 +102,15 @@ export function npcToActor(block){
   const stats=block.stats,num=(value,fallback=0)=>Number(String(value??'').match(/-?\d+/)?.[0]??fallback);
   const creatureType=stats.Type??'Monster',size=stats.Size??'Medium';
   const img=creatureType==='Animal'?(animalIcons[block.name]??'icons/svg/mystery-man.svg'):creatureType==='Unique'?'icons/creatures/magical/humanoid-silhouette-glowing-pink.webp':'icons/svg/mystery-man.svg';
-  const tokenSize=({'Huge':2,'Holy Shit':3,'Holy Shit!':3})[size]??1;
+  // Rules Book Creature Sizes table: Tiny-Medium 1, Large 2x2, Huge 3x3, Holy Shit! 4x4.
+  const tokenSize=({'Large':2,'Huge':3,'Holy Shit':4,'Holy Shit!':4})[size.trim()]??1;
   const meta=['Reactions','AD','Expertises','Equipment'].filter(key=>stats[key]).map(key=>`<li><b>${key}:</b> ${esc(stats[key])}</li>`);
   const items=block.attacks.map(attack=>{
     const stars=Math.max(...[attack.name,attack.t2,attack.t3].map(value=>(value.match(/\*/g)??[]).length));
     // Several features may share an attack's marker. Keep every matching note.
     const linked=stars?block.features.filter(f=>(f.title.match(/^\*+/)?.[0].length??0)===stars):[];
-    return {name:attack.name.replace(/\s*\(\+\d+\)\**/g,'').trim(),type:'attack',img:'icons/svg/sword.svg',system:{
-      bonus:'+'+(attack.name.match(/\(\+(\d+)\)/)?.[1]??'0'),range:attack.range,tier2Damage:attack.t2.replaceAll('*',''),tier3Damage:attack.t3.replaceAll('*',''),
+    return {name:attack.name.replace(/\s*\([+-]\d+\)\**/g,'').trim(),type:'attack',img:'icons/svg/sword.svg',system:{
+      bonus:attack.name.match(/\(([+-]\d+)\)/)?.[1]??'+0',range:attack.range,tier2Damage:attack.t2.replaceAll('*',''),tier3Damage:attack.t3.replaceAll('*',''),
       notes:linked.map(f=>`<p><b>${esc(f.title.replace(/^\*+/,''))}.</b> ${f.html.replace(/^<p>|<\/p>$/g,'')}</p>`).join('')}};
   });
   for(const f of block.features)items.push({name:f.title.replace(/^\*+/,''),type:'trait',img:'icons/svg/book.svg',system:{tree:'General',tier:'Monster Feature',cost:0,prerequisites:'',description:f.html}});
