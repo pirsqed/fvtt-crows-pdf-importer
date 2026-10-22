@@ -17,9 +17,9 @@ export function openPacketPreview(){
   dialog.innerHTML=`<header>
       <p class="eyebrow"><span>⚡</span> Crows · Playtest Library</p>
       <h1>Bring your books to the table</h1>
-      <p class="subtitle">Choose your packet, extract its content, and select what to bring into your world compendiums.</p>
+      <p class="subtitle">Choose a playtest packet or additional card PDFs, extract their content, and select what to bring into your world compendiums.</p>
     </header>
-    <section>
+    <section data-id="choose-step">
       <h2><span class="step-number">1</span> Choose your PDFs</h2>
       <div class="pickers">
         <label class="picker" data-picker="folder">
@@ -31,38 +31,49 @@ export function openPacketPreview(){
         <label class="picker" data-picker="files">
           <span class="picker-icon">📚</span>
           <span class="picker-title">Individual PDFs</span>
-          <small>Choose one or several Crows book PDFs directly.</small>
+          <small>Choose books, spell cards or other Crows card PDFs. You can import extra cards on their own.</small>
           <input data-id="files" type="file" accept=".pdf,application/pdf" multiple>
         </label>
       </div>
       <p data-id="discovery" role="status">Choose a folder or PDFs to begin.</p>
+      <p>For extra or renamed card PDFs, choose <strong>Additional inventory / spell cards</strong> below. You can select several. Cards must use the Crows card layout with selectable text; scanned images and prose spell lists are not supported.</p>
       <div data-id="assignments"></div>
       <p data-id="review"></p>
     </section>
-    <section>
-      <h2><span class="step-number">2</span> Extract your content</h2>
+    <section data-id="extract-step" hidden>
+      <h2 data-id="extract-heading" tabindex="-1"><span class="step-number">2</span> Extract your content</h2>
       <p>Extracts inventory, creatures, rollable tables, traits, backgrounds, and NPC connection benefits. You will review and filter all entries before saving.</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0">
-        <button class="primary" data-id="extract" type="button" disabled>⚡ Extract selected PDFs</button>
-        <button data-id="abort" type="button" disabled>✕ Cancel extraction</button>
-      </div>
       <p data-id="packet-status" role="status"></p>
       <progress data-id="progress" value="0" max="1" hidden></progress>
       <p data-id="packet-validation"></p>
       <div data-id="kpi-dashboard" class="kpi-grid" hidden></div>
       <details><summary>Extraction results breakdown</summary><div data-id="file-results"></div></details>
     </section>
-    <details><summary>Developer tools &amp; extraction data</summary>
+    <details data-id="extraction-data" hidden><summary>Developer tools &amp; extraction data</summary>
       <button data-id="single" type="button">Single-page tools</button>
       <pre data-id="packet-result"></pre>
     </details>
     <footer class="actions">
       <button data-id="close-packet" type="button">Close</button>
-      <button class="primary" data-id="open-import" type="button" disabled>Choose entries &amp; review →</button>
+      <button data-id="back-to-pdfs" type="button" hidden>← Back to PDFs</button>
+      <button data-id="abort" type="button" disabled hidden>✕ Cancel extraction</button>
+      <button class="primary" data-id="extract" type="button" disabled>Next: Extract PDFs →</button>
+      <button class="primary" data-id="open-import" type="button" disabled hidden>Choose entries &amp; review →</button>
     </footer>`;
 
   const $=id=>dialog.querySelector(`[data-id="${id}"]`);
   let entries=[],controller=null,closed=false,lastReport=null;
+
+  const showStep=extracting=>{
+    $('choose-step').hidden=extracting;
+    $('extract-step').hidden=!extracting;
+    $('extraction-data').hidden=!extracting;
+    $('extract').hidden=extracting;
+    $('open-import').hidden=!extracting;
+    $('back-to-pdfs').hidden=!extracting;
+    dialog.scrollTop=0;
+    (extracting?$('extract-heading'):$('extract')).focus();
+  };
 
   for(const picker of dialog.querySelectorAll('.picker')){
     picker.addEventListener('dragover',e=>{e.preventDefault();picker.classList.add('dragover');});
@@ -95,13 +106,15 @@ export function openPacketPreview(){
 
   const review=()=>{
     const result=reviewPacket(entries);
-    $('review').textContent=result.errors.length?result.errors.join(' '):`${result.selected.length} PDF(s) selected.${result.missing.length?' Not selected: '+result.missing.map(key=>CARD_SETS[key]).join(', ')+'. You can extract a partial packet.':''}`;
+    const additionalOnly=result.selected.length&&result.selected.every(entry=>entry.source==='cards');
+    $('review').textContent=result.errors.length?result.errors.join(' '):`${result.selected.length} PDF(s) selected.${additionalOnly?' Additional cards can be imported without the rest of the playtest packet.':result.missing.length?' Not selected: '+result.missing.map(key=>CARD_SETS[key]).join(', ')+'. You can extract a partial packet.':''}`;
     $('extract').disabled=Boolean(controller)||!result.selected.length||Boolean(result.errors.length);
   };
 
   const busy=value=>{
     for(const control of dialog.querySelectorAll('input,select,[data-id="single"]'))control.disabled=value;
-    $('abort').disabled=!value;review();
+    $('abort').disabled=!value;$('abort').hidden=!value;
+    $('back-to-pdfs').disabled=value;review();
   };
 
   const choose=files=>{
@@ -114,7 +127,7 @@ export function openPacketPreview(){
       label.textContent=entry.path+' ';
       const select=document.createElement('select');select.setAttribute('aria-label',`Content type for ${entry.path}`);
       for(const [value,text] of [['','Skip'],...Object.entries(CARD_SETS)]){const option=document.createElement('option');option.value=value;option.textContent=text;select.append(option);}
-      select.value=entry.source;select.onchange=()=>{entry.source=select.value;clear();review();};
+      select.value=entry.source;select.onchange=()=>{entry.source=select.value;note.textContent=entry.source==='cards'?' Uses the Crows inventory/spell card layout. Imports into Equipment & Spellbooks.':entry.source?' Content type assigned manually.':' Skipped.';clear();review();};
       const note=document.createElement('small');note.textContent=' '+entry.reason;
       label.append(select);row.append(label,note);$('assignments').append(row);
     }
@@ -124,14 +137,16 @@ export function openPacketPreview(){
   $('folder').onchange=()=>{$('files').value='';choose([...$('folder').files]);};
   $('files').onchange=()=>{$('folder').value='';choose([...$('files').files]);};
   $('abort').onclick=()=>controller?.abort();
+  $('back-to-pdfs').onclick=()=>{if(!controller)showStep(false);};
   $('close-packet').onclick=()=>{for(const d of document.querySelectorAll('dialog.crows-import-ui'))d.close();};
   $('single').onclick=()=>{dialog.close();openPreview();};
   const pagehide=()=>dialog.close();window.addEventListener('pagehide',pagehide,{once:true});
   dialog.addEventListener('close',()=>{closed=true;controller?.abort();window.removeEventListener('pagehide',pagehide);dialog.remove();});
 
   $('extract').onclick=async()=>{
-    if(controller)return;
-    clear();const current=new AbortController();controller=current;busy(true);$('progress').hidden=false;
+    if(controller||$('extract').disabled)return;
+    clear();const current=new AbortController();controller=current;busy(true);showStep(true);$('progress').hidden=false;
+    $('packet-status').textContent='Starting extraction…';
     try{
       const report=await extractPacket(entries,{signal:current.signal,onProgress:progress=>{
         if(closed||current.signal.aborted)return;
@@ -178,7 +193,7 @@ export function openPacketPreview(){
       $('packet-result').textContent=JSON.stringify(report,null,2);
       lastReport=report;$('open-import').disabled=!canReviewPacket(report,globalThis.game?.user?.isGM);
       if((report.errors.length||report.backgroundIssues.length)&&!$('open-import').disabled)$('packet-status').textContent+=' You can review successful entries. Character-creation publishing is unavailable until these issues are resolved.';
-    }catch(error){if(!closed)$('packet-status').textContent=error.name==='AbortError'?'Cancelled. No results kept; choose Extract to retry.':error.message;}
+    }catch(error){if(!closed)$('packet-status').textContent=error.name==='AbortError'?'Cancelled. No results kept. Go back to PDFs to retry.':error.message;}
     finally{if(controller===current)controller=null;if(!closed){$('progress').hidden=true;busy(false);}}
   };
   document.body.append(dialog);dialog.showModal();return dialog;

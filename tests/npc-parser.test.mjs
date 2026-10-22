@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseNPCBlock,npcToActor,validateActorPreview,parseNPCSpeeds} from '../scripts/npc-parser.mjs';
+import {parseNPCBlock,npcToActor,validateActorPreview,parseNPCSpeeds,npcs} from '../scripts/npc-parser.mjs';
 import {discoverPacket,extractPacket} from '../scripts/packet.mjs';
 const row=(text,bold=false)=>({text,first_bold:bold,all_bold:bold});
 const rows=()=>[row('Test Guard (Power 4)',true),row('Size: Medium Power: 3 Type: Human'),row('Stamina: 12 Speed: 5 Slots: 10'),row('Agility: 2 Mind: 0 Strength: 1'),row('Expertises: Athletics'),row('Equipment: Shield,'),row('spear'),row('Attack Range 12-16 17+',true),row('Spear (+3)* Melee 2 3 dam 6 dam'),row('*First feature',true),row('First effect.'),row('*Second feature',true),row('Second effect.')];
@@ -44,6 +44,21 @@ test('NPC parser skips prose and rejects incomplete stat blocks',()=>{
   assert.throws(()=>parseNPCBlock(rows().filter(r=>!r.text.startsWith('Spear')),1),/no attacks/);
 });
 
+test('wrapped attack damage and negative attack bonuses survive parsing and mapping',()=>{
+  const input=rows();input.splice(8,1,row('Web (-2) Melee 10 (3 tar) 4 P dam 6 P',true),row('dam*'));
+  const block=parseNPCBlock(input,50),attack=npcToActor(block).items[0];
+  assert.equal(block.attacks[0].t3,'6 P dam*');assert.equal(attack.system.bonus,'-2');assert.equal(attack.name,'Web');
+});
+test('two creatures in one shaded rectangle remain separate',()=>{
+  const first=rows(),second=rows();first[0]=row('First',true);second[0]=row('Second',true);
+  const lines=[...first,...second].map((r,i)=>({spans:[{text:r.text,bold:r.all_bold,bbox:[10,10+i*12,190,20+i*12]}]}));
+  const paths=[{fill:true,rect:[0,0,200,400]}];
+  const result=npcs({lines,paths},23);
+  assert.deepEqual(result.map(n=>n.name),['First','Second']);
+  assert.equal(result[0].features.length,2);
+  assert.throws(()=>npcs({lines,paths:[]},23),/found 2 creature stat blocks but parsed 0/);
+});
+
 test('animal, blood, undead and unique Actors retain type, icon, size and disposition',()=>{
   for(const [type,size,width,disposition] of [['Animal','Huge',3,0],['Blood','Large',2,-1],['Undead','Holy Shit!',4,-1],['Unique','Medium',1,-1],['Animal','Small',1,0]]){
     const input=rows();input[0]=row(type==='Animal'?'Bear':type==='Undead'?'Undead Creature A':'Test Creature',true);
@@ -85,4 +100,14 @@ test('Actor validation checks embedded Items without saving documents',()=>{
   try{assert.equal(validateActorPreview([npcToActor(parseNPCBlock(rows(),1))]).status,'passed');assert.equal(actorChecks,1);assert.equal(itemChecks,3);}
   finally{delete globalThis.CONFIG;delete globalThis.Actor;}
   assert.equal(validateActorPreview([]).status,'unavailable');
+});
+test('a stat block continued in the next column box keeps its remaining features',()=>{
+  const first=rows();first[0]=row('Long Creature',true);
+  const toLines=(list,x)=>list.map((r,i)=>({spans:[{text:r.text,bold:r.all_bold,bbox:[x+10,10+i*12,x+170,20+i*12]}]}));
+  const continued=[row('3 No effect'),row('Extra Feature (3/Day)',true),row('The creature does a thing.'),row('No Prone',true),row("The creature can't be knocked prone.")];
+  const lines=[...toLines(first,0),...toLines(continued,222)];
+  const result=npcs({lines,paths:[{fill:true,rect:[0,0,200,400]},{fill:true,rect:[222,0,396,400]}]},56);
+  assert.equal(result.length,1);
+  assert.deepEqual(result[0].features.slice(-2).map(f=>f.title),['Extra Feature (3/Day)','No Prone']);
+  assert.match(result[0].features.at(-3).lines.at(-1),/^3 No effect$/);
 });

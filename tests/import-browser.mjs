@@ -1,7 +1,7 @@
 import {fileURLToPath} from 'node:url';
 import assert from 'node:assert/strict';
 
-export async function testImportBrowser(page,modulePath,report){
+export async function setupBrowserImport(page){
   await page.evaluate(()=>{
     let next=0,saved=null;const packs=new Map();
     const makeDoc=source=>{
@@ -18,13 +18,22 @@ export async function testImportBrowser(page,modulePath,report){
     globalThis.Item=globalThis.Actor=class{constructor(data){this.items=(data.items??[]).map(()=>({validate:()=>true}));}validate(){return true;}};
     globalThis.RollTable=class{constructor(data){if(!data.results?.length)throw new Error('Missing table results');}validate(){return true;}};
     globalThis.CompendiumCollection={async createCompendium({name,type}){
-      const docs=[],pack={collection:'world.'+name,documentName:type,locked:false,async getDocuments(){return [...docs];},documentClass:{async createDocuments(entries){const created=entries.map(makeDoc);docs.push(...created);return created;}}};
+      const docs=[],pack={collection:'world.'+name,documentName:type,locked:false,folders:new Map(),async getDocuments(){return [...docs];},documentClass:{async createDocuments(entries){const created=entries.map(makeDoc);docs.push(...created);return created;}}};
       packs.set(pack.collection,pack);return pack;
     }};
+    globalThis.Folder={async createDocuments(entries,options){
+      const pack=packs.get(options?.pack);if(!pack||pack.locked)throw new Error('A writable compendium is required for folders.');
+      return entries.map(source=>{const folder=makeDoc(source);pack.folders.set(folder.id,folder);return folder;});
+    }};
   });
+}
+
+export async function testImportBrowser(page,modulePath,report){
+  await setupBrowserImport(page);
   await page.evaluate(async({path,report})=>{const {openImportReview}=await import(path);openImportReview(report);},{path:modulePath+'scripts/import-review.mjs',report});
   const $=id=>page.locator(`[data-id="${id}"]`);
   assert.equal(await $('review-import').isEnabled(),true);
+  assert.equal(await $('finish-import').isVisible(),false);
   assert.equal(await $('conflicts').locator('select').count(),0);
   const review=async()=>{await $('review-import').click();await page.waitForFunction(()=>!document.querySelector('[data-id="review-import"]').disabled);assert.equal(await $('save-import').isEnabled(),true);};
   await $('select-none').click();assert.equal(await $('review-import').isDisabled(),true);
@@ -36,7 +45,7 @@ export async function testImportBrowser(page,modulePath,report){
   await $('select-all').click();
   assert.ok(await $('entry-list').locator('input:checked').count()>1);
   await $('search').fill('');await $('select-all').click();await $('publish-creator').check();
-  await review();assert.match(await $('import-status').textContent(),/542 new/);
+  await review();assert.match(await $('import-status').textContent(),/543 new/);
   await page.evaluate(()=>document.querySelector('dialog:last-of-type').scrollTop=0);
   await page.screenshot({path:fileURLToPath(new URL('../out/import-review-ui.png',import.meta.url))});
   const viewport=page.viewportSize();await page.setViewportSize({width:600,height:850});
@@ -52,12 +61,22 @@ export async function testImportBrowser(page,modulePath,report){
   await page.evaluate(()=>CompendiumCollection.createCompendium({name:'crows-equipment',type:'Item'}));
   await $('save-import').click();await page.waitForFunction(()=>!document.querySelector('[data-id="review-import"]').disabled);
   assert.match(await $('import-status').textContent(),/changed since the review/);
+  assert.equal(await $('finish-import').isVisible(),false);
   assert.equal(await page.evaluate(async()=>{let count=0;for(const p of game.packs.values())count+=(await p.getDocuments()).length;return count;}),0);
-  await review();await $('save-import').click();await page.waitForFunction(()=>!document.querySelector('[data-id="review-import"]').disabled);
-  assert.match(await $('import-status').textContent(),/^Import complete/);assert.match(await $('import-status').textContent(),/Character-creation data published/);
+  await review();await $('save-import').click();await $('finish-import').waitFor({state:'visible'});
+  assert.equal(await $('finish-import').isEnabled(),true);
+  assert.equal(await $('save-import').isVisible(),false);
+  assert.equal(await $('entry-list').isVisible(),false);
+  assert.match(await $('completion-summary').textContent(),/Character-creation data published/);
   assert.equal(await page.evaluate(()=>game.settings.get().content.backgrounds.length),36);
-  await review();assert.match(await $('import-status').textContent(),/0 new, 0 updates, 542 unchanged/);
-  assert.equal(await page.evaluate(async()=>{const p=game.packs.get('world.crows-ref-tables');return p.documentName==='RollTable'&&(await p.getDocuments()).length;}),21);
+  // Reopen the review to check repeat imports while retaining the packet fixture underneath.
+  await page.evaluate(()=>document.querySelector('dialog:last-of-type').close());
+  await page.waitForFunction(()=>!document.querySelector('[data-id="finish-import"]'));
+  await page.evaluate(async({path,report})=>{
+    const {openImportReview}=await import(path+'scripts/import-review.mjs');openImportReview(report);
+  },{path:modulePath,report});
+  await review();assert.match(await $('import-status').textContent(),/0 new, 0 updates, 543 unchanged/);
+  assert.equal(await page.evaluate(async()=>{const p=game.packs.get('world.crows-ref-tables');return p.documentName==='RollTable'&&(await p.getDocuments()).length;}),22);
   await $('close-import').click();
-  return {loreVariantsWithoutConflicts:true,staleReview:true,documents:542,published:true,repeatUnchanged:542};
+  return {loreVariantsWithoutConflicts:true,staleReview:true,documents:543,published:true,repeatUnchanged:543};
 }

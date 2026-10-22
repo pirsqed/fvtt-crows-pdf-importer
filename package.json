@@ -1,13 +1,15 @@
 {
   "name": "fvtt-crows-pdf-importer",
-  "version": "0.1.2",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "license": "MIT",
   "description": "the Crows Foundry VTT PDF importer",
   "scripts": {
-    "test": "node --test tests/module.test.mjs tests/card-parser.test.mjs tests/item-mapper.test.mjs tests/packet.test.mjs tests/npc-parser.test.mjs tests/characters-parser.test.mjs tests/import-content.test.mjs tests/ref-tables.test.mjs",
+    "test": "node --test tests/module.test.mjs tests/card-parser.test.mjs tests/item-mapper.test.mjs tests/packet.test.mjs tests/npc-parser.test.mjs tests/characters-parser.test.mjs tests/import-content.test.mjs tests/bestiary-folders.test.mjs tests/ref-tables.test.mjs",
     "test:tables": "node tests/ref-tables-compare.mjs",
+    "test:packet": "node tests/playtest-packet.mjs",
+    "test:packet-browser": "node tests/playtest-browser.mjs",
     "test:import": "node tests/import-fixtures.mjs",
     "test:characters": "node tests/characters-compare.mjs",
     "test:npcs": "node tests/npcs-compare.mjs",
@@ -15,6 +17,7 @@
     "test:cards": "node tests/cards-compare.mjs",
     "test:extraction": "node tests/compare.mjs",
     "test:browser": "node tests/browser-smoke.mjs",
+    "test:review-browser": "node tests/review-browser.mjs",
     "test:release": "python -m unittest discover -s tests -p test_release.py",
     "build:release": "python tools/build_release.py"
   }

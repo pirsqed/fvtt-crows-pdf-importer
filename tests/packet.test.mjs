@@ -2,7 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {discoverPacket,reviewPacket,extractPacket,extractPacketFile} from '../scripts/packet.mjs';
 import {canReviewPacket} from '../scripts/packet-preview.mjs';
+import {extractPage} from '../scripts/extract.mjs';
 const file=(name,path=name)=>({name,webkitRelativePath:path,arrayBuffer(){throw new Error('Discovery must not read files.');}});
+
+test('Playtest 3 renamed books are discovered without treating a referee screen as the Ref book',()=>{
+  const entries=discoverPacket(['02 Crows Character Booklet for Playtest 3.pdf','03 Crows The Ref for Playtest 3.pdf','05 Crows Referee Screen for Playtest 2.pdf'].map(name=>file(name)));
+  assert.deepEqual(entries.map(e=>e.source),['characters','ref','']);
+});
 
 test('Ref packet keeps tables and correction notes available for review',async()=>{
   const table={name:'Example',formula:'1d6',results:[]};
@@ -17,10 +23,39 @@ test('folder discovery includes nested PDFs, excludes extra copies, and detects 
 });
 
 test('duplicates need an explicit choice; renamed PDFs and partial packets are supported',()=>{
-  const entries=discoverPacket([file('Cards.pdf'),file('Cards copy.pdf'),file('renamed.pdf')]);
+  const entries=discoverPacket([file('Inventory Cards.pdf'),file('Inventory Cards copy.pdf'),file('renamed.pdf')]);
   assert.equal(reviewPacket(entries).errors.length,1);
   entries[1].source='';entries[2].source='profession';
   assert.deepEqual(reviewPacket(entries).missing,['poi','ref','rules','characters']);assert.deepEqual(reviewPacket(entries).errors,[]);
+});
+
+test('additional card PDFs are repeatable and may be selected without the base packet',()=>{
+  const entries=discoverPacket([file('Spells for Patreon.pdf'),file('Homebrew Cards.pdf'),file('renamed.pdf')]);
+  assert.equal(entries.find(e=>e.file.name==='Spells for Patreon.pdf').source,'cards');
+  assert.equal(entries.find(e=>e.file.name==='Homebrew Cards.pdf').source,'cards');
+  entries.find(e=>e.file.name==='renamed.pdf').source='cards';
+  const review=reviewPacket(entries);
+  assert.equal(review.selected.length,3);assert.deepEqual(review.errors,[]);
+  assert.ok(!review.missing.includes('cards'));
+  const mixed=reviewPacket([...entries,...discoverPacket([file('Inventory Cards.pdf')])]);
+  assert.deepEqual(mixed.errors,[]);assert.equal(mixed.selected.length,4);
+});
+
+test('saved web pages and invalid files get actionable PDF errors before parsing',async()=>{
+  await assert.rejects(extractPage(new TextEncoder().encode('<!DOCTYPE html><title>Log in</title>'),null,'cards'),/web page, not a PDF.*Download the PDF attachment/);
+  await assert.rejects(extractPage(new TextEncoder().encode('not a PDF'),null,'cards'),/does not contain a PDF header/);
+});
+
+test('additional card extraction passes the file path to its worker',async()=>{
+  const previous=globalThis.Worker;let message;
+  globalThis.Worker=class{
+    terminate(){}
+    postMessage(data){message=data;queueMicrotask(()=>this.onmessage({data:{result:{parsedCards:[]}}}));}
+  };
+  try{
+    await extractPacketFile({source:'cards',path:'Supplements/Spells.pdf',file:{arrayBuffer:async()=>new ArrayBuffer(0)}});
+    assert.equal(message.kind,'cards');assert.equal(message.source,'cards');assert.equal(message.file,'Supplements/Spells.pdf');
+  }finally{if(previous)globalThis.Worker=previous;else delete globalThis.Worker;}
 });
 
 test('batch processing is sequential, records file errors, and preserves successful file results',async()=>{

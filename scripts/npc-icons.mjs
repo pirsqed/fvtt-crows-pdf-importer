@@ -1,6 +1,7 @@
 // Foundry core icon paths, matching the existing system importer.
 export const animalIcons={
   "Ape": "icons/creatures/magical/humanoid-giant-forest-blue.webp",
+  "Ape, Giant": "icons/creatures/magical/humanoid-giant-forest-blue.webp",
   "Bear": "icons/creatures/abilities/bear-roar-bite-brown.webp",
   "Bear, Cave": "icons/creatures/abilities/bear-roar-bite-brown-green.webp",
   "Camel": "icons/creatures/mammals/ox-buffalo-horned-green.webp",

@@ -1,20 +1,22 @@
 import {finalizeBackgrounds} from './characters-parser.mjs';
-export const CARD_SETS={core:'Core inventory',profession:'Profession inventory',poi:'POIs and dungeons',ref:'Ref book — creatures and rollable tables',rules:'Rules Book — Miasma Effects table',characters:'Characters — backgrounds, connections and traits'};
+export const CARD_SETS={core:'Core inventory',profession:'Profession inventory',poi:'POIs and dungeons',ref:'Ref book — creatures and rollable tables',rules:'Rules Book — Miasma Effects and Backlashes tables',characters:'Characters — backgrounds, connections and traits',cards:'Additional inventory / spell cards'};
+const PACKET_SOURCES=Object.keys(CARD_SETS).filter(source=>source!=='cards');
 export const filePath=file=>file.webkitRelativePath||file.name;
 
 /** Filename discovery only. File contents are read after the user starts extraction. */
 export function discoverPacket(files){
   return [...files].filter(file=>/\.pdf$/i.test(file.name)).sort((a,b)=>filePath(a).localeCompare(filePath(b))).map(file=>{
     const path=filePath(file),name=file.name.toLowerCase();
-    let source='',reason='Not supported for batch extraction yet; assign a content type only if this is a renamed supported PDF.';
+    let source='',reason='Choose Additional inventory / spell cards for a PDF using the Crows card layout, or assign a supported book type. Otherwise leave skipped.';
     if(path.split(/[\\/]/).some(part=>part.startsWith('.')||part==='__MACOSX'))reason='Hidden or archive metadata copy; skipped.';
     else if(/annotated/.test(name))reason='Annotated copy; skipped to avoid duplicate cards.';
-    else if(/ref(?:eree)?[ _-]+book/.test(name)){source='ref';reason='Ref book detected; extracts creature stat blocks and rollable tables.';}
-    else if(/rules?[ _-]+book/.test(name)){source='rules';reason='Rules Book detected; extracts the Miasma Effects table.';}
-    else if(/characters/.test(name)){source='characters';reason='Characters book detected; extracts backgrounds, NPC connections and trait trees.';}
+    else if(/ref(?:eree)?[ _-]+book|\bthe[ _-]+ref[ _-]+for[ _-]+playtest\b/.test(name)){source='ref';reason='Ref book detected; extracts creature stat blocks and rollable tables.';}
+    else if(/rules?[ _-]+book/.test(name)){source='rules';reason='Rules Book detected; extracts the Miasma Effects table, and the Backlashes table from Playtest 3.';}
+    else if(/characters|character[ _-]+book/.test(name)){source='characters';reason='Characters book detected; extracts backgrounds, NPC connections and trait trees.';}
     else if(/cards/.test(name) && !/sheet/.test(name)){
-      source=/profession/.test(name)?'profession':/poi|dungeon/.test(name)?'poi':'core';reason='Detected from filename.';
+      source=/profession/.test(name)?'profession':/poi|dungeon/.test(name)?'poi':/inventory|invetory/.test(name)?'core':'cards';reason='Detected from filename; check the assignment before extracting.';
     }
+    else if(/\bspells?\b|\bspell[ _-]*books?\b/.test(name)&&!/sheet/.test(name)){source='cards';reason='Possible spell cards; check that this PDF uses the Crows card layout.';}
     return {file,path,source,reason};
   });
 }
@@ -22,8 +24,8 @@ export function discoverPacket(files){
 export function reviewPacket(entries){
   const selected=entries.filter(entry=>entry.source),errors=[];
   for(const entry of selected)if(!Object.hasOwn(CARD_SETS,entry.source))errors.push(`Unsupported card set: ${entry.source}`);
-  for(const [source,label] of Object.entries(CARD_SETS))if(selected.filter(entry=>entry.source===source).length>1)errors.push(`${label}: choose one PDF and skip the extra copies.`);
-  return {selected,errors,missing:Object.keys(CARD_SETS).filter(source=>!selected.some(entry=>entry.source===source))};
+  for(const source of PACKET_SOURCES)if(selected.filter(entry=>entry.source===source).length>1)errors.push(`${CARD_SETS[source]}: choose one PDF and skip the extra copies. For separate card supplements, choose Additional inventory / spell cards.`);
+  return {selected,errors,missing:PACKET_SOURCES.filter(source=>!selected.some(entry=>entry.source===source))};
 }
 
 const cancelled=()=>new DOMException('Extraction cancelled.','AbortError');
@@ -50,7 +52,7 @@ export function extractPacketFile(entry,{signal,onProgress=()=>{},timeout=30000}
     };
     entry.file.arrayBuffer().then(bytes=>{
       if(finished)return;
-      worker.postMessage({bytes,page:null,kind:['ref','characters','rules'].includes(entry.source)?entry.source:'cards',source:entry.source,baseURL:new URL('../../../scripts/pdfjs/',import.meta.url).href},[bytes]);
+      worker.postMessage({bytes,page:null,kind:['ref','characters','rules'].includes(entry.source)?entry.source:'cards',source:entry.source,file:entry.path,baseURL:new URL('../../../scripts/pdfjs/',import.meta.url).href},[bytes]);
     }).catch(error=>finish(error));
   });
 }

@@ -90,6 +90,12 @@ export async function readLayout(page,pdfjs){
 }
 
 export async function extractPage(bytes,pageNumber,kind,{pdfjs,baseURL,worker,source='unknown',onProgress=()=>{}}={}){
+  // A browser's Save Page action can produce HTML with a misleading .pdf name.
+  const header=new TextDecoder().decode(bytes.subarray(0,1024));
+  if(!header.includes('%PDF-')){
+    if(/<!doctype\s+html|<html\b/i.test(header))throw new Error('This file is a web page, not a PDF. Download the PDF attachment itself while signed in, then choose that file.');
+    throw new Error('This file does not contain a PDF header. Download the original PDF and try again.');
+  }
   if(!pdfjs)throw new Error('PDF.js must be supplied by the host.');
   if(pdfjs.version!=='4.0.379')throw new Error(`This prototype was validated with PDF.js 4.0.379; found ${pdfjs.version}. Recheck the font/path adapter before using this version.`);
   if(!['cards','traits','npcs','ref','characters','rules'].includes(kind))throw new Error('Choose cards, traits, NPCs, Ref, Characters or Rules book.');
@@ -171,7 +177,7 @@ export async function extractPage(bytes,pageNumber,kind,{pdfjs,baseURL,worker,so
         finally{page.cleanup();}
         onProgress({page:number,total:doc.numPages});
       }
-      if(!parsedCards.length)throw new Error('No inventory cards found. Check the PDF assignment and packet version.');
+      if(!parsedCards.length)throw new Error('No inventory or spell cards found. Choose a PDF with selectable text using the Crows card layout; scanned images and prose lists are not supported.');
       return {kind,source,pages,parsedCards};
     }
     if(!Number.isInteger(pageNumber)||pageNumber<1||pageNumber>doc.numPages)throw new Error(`Page must be between 1 and ${doc.numPages}.`);

@@ -7,6 +7,7 @@ import {compare} from './comparison.mjs';
 import {compareCards} from './card-comparison.mjs';
 import {cardToItem} from '../scripts/item-mapper.mjs';
 import {testPacketBrowser} from './packet-browser.mjs';
+import {testAdditionalCardsBrowser} from './additional-cards-browser.mjs';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE?pathToFileURL(process.env.PLAYWRIGHT_MODULE).href:'playwright');
 const root=process.env.CROWS_MODULE_ROOT??fileURLToPath(new URL('../',import.meta.url));
 const sourceRoot=fileURLToPath(new URL('../',import.meta.url));
@@ -87,10 +88,11 @@ try{
   await run(selected[1]);
   await $('close').click();await page.locator('dialog').waitFor({state:'detached'});
   const packet=await testPacketBrowser(page,systemPath,cards);
+  const additionalCards=await testAdditionalCardsBrowser(page,systemPath);
   assert.deepEqual(errors,[]);assert.deepEqual(unexpected,[]);
   assert.ok([...served].some(p=>p.endsWith('/build/pdf.worker.mjs')));
   assert.ok(![...served].some(p=>p.endsWith('.html')));
-  await writeFile(new URL('../out/browser-results.json',import.meta.url),JSON.stringify({packet,results,descriptions:rendered.length,invalidPage:true,invalidPDF:true,cancelAndRetry:true,launcher:true,reverseProxyPrefix:true,externalRequests:unexpected,pageErrors:errors,served:[...served]},null,2));
-  console.log(JSON.stringify({packet}));
+  await writeFile(new URL('../out/browser-results.json',import.meta.url),JSON.stringify({packet,additionalCards,results,descriptions:rendered.length,invalidPage:true,invalidPDF:true,cancelAndRetry:true,launcher:true,reverseProxyPrefix:true,externalRequests:unexpected,pageErrors:errors,served:[...served]},null,2));
+  console.log(JSON.stringify({packet,additionalCards}));
   console.log(JSON.stringify({results,invalidPage:true,invalidPDF:true,cancelAndRetry:true,launcher:true,reverseProxyPrefix:true,pageErrors:errors}));
 }finally{await browser?.close();await new Promise(r=>server.close(r));}

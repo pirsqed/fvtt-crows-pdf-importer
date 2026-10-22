@@ -92,7 +92,9 @@ export function parseBackgroundEquipment(text,ranks){
 
 export function finalizeBackgrounds(book,cards){
   const ranks=new Map();
+  const coreNames=new Set(cards.filter(card=>card.source==='core'&&card.spell).map(card=>card.name.toLowerCase()));
   for(const card of cards){if(card.spell&&card.name.endsWith(' Book')){
+    if(card.source==='cards'&&coreNames.has(card.name.toLowerCase()))continue;
     const name=card.name.slice(0,-5).toLowerCase(),rank=card.spell.rank;
     ranks.set(name,ranks.has(name)&&ranks.get(name)!==rank?null:rank);
   }}

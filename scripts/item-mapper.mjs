@@ -20,15 +20,22 @@ function improvisedWeapon(card) {
     attack:`2d10 + ${/agility/i.test(text)?'A':'S'}`,tier2:card.tiers.t2,tier3:card.tiers.t3};
 }
 
+function parryDefense(card) {
+  const match=card.qualities?.map(q=>q.match(/^Parry\s+(\d+)$/i)).find(Boolean);
+  return match?Number(match[1]):null;
+}
+
 function description(card,relic) {
-  const badges=[],parts=["<div class='crows-item-card'>"],spell=card.spell;
+  const badges=[],parts=["<div class='crows-item-card'>"],spell=card.spell,defense=card.armor_ad??parryDefense(card);
   const badge=(text,kind='')=>badges.push(`<span class='badge ${kind}'>${esc(text)}</span>`);
   if(relic)badge('Dungeon Relic');
-  if(spell){badge(spell.discipline??'Spell','magic');if(spell.cast)badge(spell.cast);badge(`Rank ${spell.rank??0}`);}
+  if(card.unique)badge('Unique Item');
+  if(spell){badge(spell.discipline??'Spell','magic');if(spell.cast)badge(spell.cast);badge(spell.rank==null?'Rank unknown':`Rank ${spell.rank}`);}
   if(card.weapon){badge('Weapon','weapon');badge(card.weapon.range,'range');}
-  if(card.armor_ad!=null)badge(`AD ${card.armor_ad}`,'armor');
+  if(defense!=null)badge(`AD ${defense}`,'armor');
   if(card.ud)badge(`UD ${card.ud.max} (${card.ud.flags.join('; ')})`,'ud');
   if(card.magic_slot)badge(`Slot: ${card.magic_slot}`,'slot');
+  if(card.wearable)badge('Wearable','slot');
   if(card.slots>1)badge(`${card.slots} Slots`,'slots');
   if(card.stack>1)badge(`Stack ${card.stack}`,'stack');
   if(badges.length)parts.push(`<div class='card-badges'>${badges.join(' ')}</div>`);
@@ -43,6 +50,7 @@ function description(card,relic) {
     parts.push(`<table class='crows-tier-table ${card.weapon?'weapon':'effect'}'><thead><tr>${columns.map(key=>`<th class='tier-${key[1]}'>${headings[key]}</th>`).join('')}</tr></thead><tbody><tr>${columns.map(key=>`<td>${esc(tiers[key])}</td>`).join('')}</tr></tbody></table>`);
   }
   if(card.qualities?.length)parts.push(`<div class='traits-block'><strong>Traits:</strong> ${card.qualities.map(q=>`<span class='trait-tag'>${esc(q)}</span>`).join(' ')}</div>`);
+  if(card.enchantment)parts.push(`<div class='enchantment'><strong>Enchantment:</strong> ${esc(card.enchantment)}</div>`);
   const variants=['fine','masterwork'].filter(key=>card.variants?.[key]);
   if(variants.length)parts.push(`<div class='variants-block'>${variants.map(key=>{const v=card.variants[key];return `<div><b>${key[0].toUpperCase()+key.slice(1)} (${esc(v.price?.toLocaleString('en-US'))} gc):</b> ${esc(v.text)}</div>`;}).join('')}</div>`);
   const footer=[];
@@ -55,19 +63,21 @@ function description(card,relic) {
 /** Map one parsed card to unsaved Item source data. No Foundry APIs or writes. */
 export function cardToItem(card) {
   if(!card || typeof card.name!=='string' || !card.name.trim())throw new Error('Cannot map a card without a name.');
-  if(!['core','profession','poi'].includes(card.source))throw new Error(`${card.name}: choose a supported card set.`);
+  if(!['core','profession','poi','cards'].includes(card.source))throw new Error(`${card.name}: choose a supported card set.`);
   let name=aliases[card.name]??card.name;
-  if(name==='Lore Book'){
+  if(/^(?:.* )?Lore Book$/.test(name)){
     const text=(card.body_html??'').replace(/<[^>]+>/g,'').replace(/\s+/g,' ');
-    const expertise=text.match(/\bThis book relates to the ([^.?!]+?) Lore expertise\b/i)?.[1]?.trim();
-    if(expertise)name+=` (${expertise})`;
+    const expertise=text.match(/\bThis book relates to (?:the )?([^.?!]+?) Lore(?: expertise\b|\.)/i)?.[1]?.trim();
+    if(expertise&&!/^(?:a|an|any)$/i.test(expertise))name+=` (${expertise})`;
   }
-  const spell=card.spell,weapon=card.weapon??improvisedWeapon(card),ud=card.ud,tiers=card.tiers??{};
+  const spell=card.spell,weapon=card.weapon??improvisedWeapon(card),ud=card.ud,tiers=card.tiers??{},defense=card.armor_ad??parryDefense(card);
   if(spell?.rank!=null && name.endsWith(' Book'))name+=` R${spell.rank}`;
-  const capacity=capacities[name.trim().toLowerCase()]??0;
+  const printedCoins=/coin purse$/i.test(name)?(card.body_html??'').replace(/<[^>]+>/g,'').match(/Holds up to ([\d,]+) coins/i):null;
+  const capacity=printedCoins?Number(printedCoins[1].replaceAll(',','')):capacities[name.trim().toLowerCase()]??0;
   const contentsType=capacity?(/purse/i.test(name)?'gold':/quiver/i.test(name)?'arrows':'bolts'):'';
+  if(card.enchantment)name+=` (${card.enchantment})`;
   const consumable=Boolean(ud || spell || Object.keys(tiers).length && !card.weapon);
-  const traits=[...(spell?[spell.discipline,`Rank ${spell.rank??0}`,spell.cast]:[]),...(card.qualities??[])].filter(Boolean);
+  const traits=[...(spell?[spell.discipline,spell.rank==null?null:`Rank ${spell.rank}`,spell.cast]:[]),...(card.qualities??[]),...(card.enchantment?[`Enchantment: ${card.enchantment}`]:[])].filter(Boolean);
   const trigger=ud?(/dt/i.test(ud.flags.join(';'))?'DT':/rest/i.test(ud.flags.join(';'))?'Rest':/useless/i.test(ud.flags.join(';'))?'Useless':'Activate'):'DT';
   const system={
     contentsType,contentsMax:capacity,contentsQuantity:['arrows','bolts'].includes(contentsType)?capacity:0,
@@ -75,7 +85,7 @@ export function cardToItem(card) {
     location:'backpack1',slots:card.slots??1,quantity:1,cost:card.price??0,crafting:card.crafting?.raw??'',traits:traits.join(', '),
     maxStack:capacity?1:card.stack||1,isEquipped:true,greedBonus:0,isShield:/\bshield\b/i.test(name),isSpellbook:Boolean(spell),
     isWeapon:Boolean(weapon),weapon:{range:weapon?.range??'',attackFormula:weapon?.attack||'2d10 + S',tier2Damage:weapon?.tier2||'',tier3Damage:weapon?.tier3||''},
-    isArmor:card.armor_ad!=null,armor:{defense:card.armor_ad??0,maxDefense:card.armor_ad??0},isConsumable:consumable,
+    isArmor:defense!=null,armor:{defense:defense??0,maxDefense:defense??0},isConsumable:consumable,
     consumable:{usageDice:ud?`UD ${ud.max} (${ud.flags.join('; ')})`:'',currentUD:ud?.max??0,maxUD:ud?.max??0,udTrigger:trigger,
       actionText:card.body_html&&consumable?`<p>${safeBody(card.body_html)}</p>`:'',tier1Effect:card.weapon?'':tiers.t1??'',tier2Effect:card.weapon?'':tiers.t2??'',tier3Effect:card.weapon?'':tiers.t3??''}
   };
@@ -83,8 +93,8 @@ export function cardToItem(card) {
   // Page/index locate the printed card; name+type identify the proposed Item.
   const fallback=icons[spell||card.name==='Lore Book'?'book':weapon?'weapon':card.armor_ad!=null?'armor':'default'];
   return {name,type:'equipment',img:iconForItem(name,card.name,fallback),system,
-    flags:{[scope]:{schemaVersion:1,source:{set:card.source,page:card.page,cardIndex:card.card_index,name:card.name},
-      crafting:structuredClone(card.crafting??null),variants:structuredClone(card.variants??{}),spell:structuredClone(spell??null),magicSlot:card.magic_slot??null}}};
+    flags:{[scope]:{schemaVersion:1,source:{set:card.source,page:card.page,cardIndex:card.card_index,name:card.name,...(card.file?{file:card.file}:{})},
+      crafting:structuredClone(card.crafting??null),variants:structuredClone(card.variants??{}),spell:structuredClone(spell??null),magicSlot:card.magic_slot??null,...(card.wearable?{wearable:true}:{}),...(card.unique?{unique:true}:{}),...(card.enchantment?{enchantment:card.enchantment}:{})}}};
 }
 
 /** Strict validation instantiates temporary documents only; never saves them. */

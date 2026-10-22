@@ -35,6 +35,10 @@ export function styleImport(dialog){
   box-sizing: border-box;
 }
 
+.crows-import-ui [hidden] {
+  display: none !important;
+}
+
 /* Scrollbars */
 .crows-import-ui::-webkit-scrollbar,
 .crows-import-ui *::-webkit-scrollbar {
@@ -364,6 +368,60 @@ export function styleImport(dialog){
   outline-offset: 2px;
 }
 
+/* The review keeps feedback and controls outside its scrolling body. */
+.crows-import-ui.crows-import-review[open] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.crows-import-review .import-review-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 28px;
+}
+
+.crows-import-review .import-changes:not(:empty) {
+  max-height: min(340px, 42vh);
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  overscroll-behavior: contain;
+}
+
+.crows-import-review .import-changes table {
+  margin: 0;
+  min-width: 620px;
+  border: 0;
+  overflow: visible;
+}
+
+.crows-import-review .import-changes th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #1e293b;
+}
+
+.crows-import-review .import-changes td {
+  overflow-wrap: anywhere;
+}
+
+.crows-import-review .import-changes td:nth-child(3),
+.crows-import-review .import-changes td:nth-child(4) {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.crows-import-review tr[data-status="importing"] { background: rgba(59, 130, 246, 0.18); }
+.crows-import-review tr[data-status="importing"] td:nth-child(4) { color: #93c5fd; }
+.crows-import-review tr[data-status="created"] td:nth-child(4),
+.crows-import-review tr[data-status="updated"] td:nth-child(4) { color: #6ee7b7; }
+.crows-import-review tr[data-status="preserved"] td:nth-child(4) { color: #fcd34d; }
+.crows-import-review tr[data-status="failed"] td:nth-child(4) { color: #fca5a5; }
+
 /* Sticky Action Footer */
 .crows-import-ui .actions {
   position: sticky;
@@ -382,6 +440,32 @@ export function styleImport(dialog){
   gap: 8px;
   box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.45);
 }
+
+.crows-import-ui .actions.review-actions {
+  position: static;
+  flex: none;
+  display: block;
+  margin: 0;
+  padding: 12px 20px;
+}
+
+.crows-import-review .review-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.crows-import-review .review-actions [data-id="import-status"] {
+  margin: 0 0 10px;
+  max-height: 18vh;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+
+.crows-import-review .import-progress { margin-bottom: 8px; }
+.crows-import-review .import-progress label { font-size: 12px; }
+.crows-import-review .import-progress progress { display: block; width: 100%; height: 8px; margin: 4px 0; }
 
 /* Status Notifications */
 .crows-import-ui [role=status]:not(:empty) {
@@ -656,6 +740,7 @@ export function styleImport(dialog){
 
 /* Responsive */
 @media(max-width: 650px) {
+  .crows-import-review .import-review-body { padding: 16px; }
   .crows-import-ui {
     padding: 16px;
   }
